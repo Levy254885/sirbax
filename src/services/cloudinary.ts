@@ -1,14 +1,7 @@
 /**
- * Cloudinary upload architecture
- *
- * Client flow:
- * 1. Validate file type/size on client
- * 2. Optionally compress with canvas
- * 3. POST to /api/upload (server signs) OR use unsigned upload preset
- * 4. Receive { secure_url, public_id, width, height, format, bytes }
- * 5. Store metadata in Firestore with the post/profile
- *
- * Never expose CLOUDINARY_API_SECRET in client code.
+ * Cloudinary image uploads (unsigned preset).
+ * Never put CLOUDINARY_API_SECRET in client code.
+ * Flow: validate → upload to Cloudinary → save secure_url in Firestore.
  */
 
 export interface CloudinaryUploadResult {
@@ -20,45 +13,47 @@ export interface CloudinaryUploadResult {
   bytes: number;
 }
 
+const MAX_BYTES = 8 * 1024 * 1024;
+const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+export function validateImageFile(file: File): string | null {
+  if (!ALLOWED.includes(file.type)) {
+    return "Only JPEG, PNG, WebP, or GIF images are allowed";
+  }
+  if (file.size > MAX_BYTES) {
+    return "Image must be under 8MB";
+  }
+  return null;
+}
+
 export function cloudinaryUrl(
   publicId: string,
-  opts?: {
-    width?: number;
-    height?: number;
-    crop?: string;
-    quality?: string;
-  }
+  opts?: { width?: number; height?: number; crop?: string; quality?: string }
 ): string {
-  const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "demo";
+  const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "dozqfm7t";
   const transforms: string[] = [];
   if (opts?.width) transforms.push(`w_${opts.width}`);
   if (opts?.height) transforms.push(`h_${opts.height}`);
   if (opts?.crop) transforms.push(`c_${opts.crop}`);
   transforms.push(`q_${opts?.quality || "auto"}`, "f_auto");
-  const t = transforms.join(",");
-  return `https://res.cloudinary.com/${cloud}/image/upload/${t}/${publicId}`;
+  return `https://res.cloudinary.com/${cloud}/image/upload/${transforms.join(",")}/${publicId}`;
 }
 
-export async function uploadImage(
-  file: File
-): Promise<CloudinaryUploadResult> {
+export async function uploadImage(file: File): Promise<CloudinaryUploadResult> {
+  const err = validateImageFile(file);
+  if (err) throw new Error(err);
+
   const cloud = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
   const preset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
   if (!cloud || !preset) {
-    return {
-      publicId: `demo/${Date.now()}`,
-      secureUrl: URL.createObjectURL(file),
-      width: 800,
-      height: 600,
-      format: file.type.split("/")[1] || "jpg",
-      bytes: file.size,
-    };
+    throw new Error("Cloudinary is not configured (cloud name / upload preset missing)");
   }
 
   const form = new FormData();
   form.append("file", file);
   form.append("upload_preset", preset);
+  form.append("folder", "sirbax");
 
   const res = await fetch(
     `https://api.cloudinary.com/v1_1/${cloud}/image/upload`,
@@ -66,16 +61,23 @@ export async function uploadImage(
   );
 
   if (!res.ok) {
-    throw new Error("Image upload failed");
+    let message = "Image upload failed";
+    try {
+      const body = await res.json();
+      if (body?.error?.message) message = body.error.message;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(message);
   }
 
   const data = await res.json();
   return {
-    publicId: data.public_id,
-    secureUrl: data.secure_url,
-    width: data.width,
-    height: data.height,
-    format: data.format,
-    bytes: data.bytes,
+    publicId: data.public_id as string,
+    secureUrl: data.secure_url as string,
+    width: data.width as number,
+    height: data.height as number,
+    format: data.format as string,
+    bytes: data.bytes as number,
   };
 }
