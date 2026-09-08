@@ -16,13 +16,13 @@ export function BottomNav() {
         href={href}
         className={cn(
           "relative flex flex-1 flex-col items-center gap-0.5 py-1 text-[10px] font-medium",
-          active ? "text-primary" : "text-muted-foreground"
+          active ? "text-blue-600" : "text-slate-400"
         )}
       >
         <Icon className="h-6 w-6" strokeWidth={active ? 2.4 : 1.8} />
         {label}
         {badge ? (
-          <span className="absolute right-[18%] top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold text-white">
+          <span className="absolute right-[18%] top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
             {badge}
           </span>
         ) : null}
@@ -31,14 +31,14 @@ export function BottomNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-md pb-safe md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white pb-safe md:hidden">
       <div className="flex h-16 items-center px-1">
         {item("/home", Home, "Home")}
         {item("/explore", Search, "Explore")}
         <div className="flex flex-1 items-center justify-center">
           <Link
             href="/create"
-            className="-mt-5 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30"
+            className="-mt-5 flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg shadow-blue-600/30"
             aria-label="Create"
           >
             <span className="text-2xl font-light leading-none">+</span>
