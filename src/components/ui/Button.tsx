@@ -12,21 +12,21 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "primary", size = "md", loading, disabled, children, ...props }, ref) => {
     const base =
-      "inline-flex items-center justify-center gap-2 font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 rounded-lg";
+      "inline-flex items-center justify-center gap-2 font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]";
 
     const variants = {
-      primary: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm",
-      secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-      ghost: "hover:bg-muted text-foreground font-medium",
-      outline: "border border-border bg-transparent hover:bg-muted text-foreground font-medium",
-      destructive: "bg-destructive text-white hover:bg-destructive/90",
+      primary: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm shadow-primary/20 rounded-xl",
+      secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-xl",
+      ghost: "hover:bg-muted text-foreground font-medium rounded-xl",
+      outline: "border border-border bg-card hover:bg-muted text-foreground font-medium rounded-xl",
+      destructive: "bg-destructive text-white hover:bg-destructive/90 rounded-xl",
     };
 
     const sizes = {
-      sm: "h-8 px-3 text-sm",
-      md: "h-10 px-4 text-sm",
-      lg: "h-12 px-6 text-base",
-      icon: "h-10 w-10",
+      sm: "h-9 px-3.5 text-sm",
+      md: "h-11 px-5 text-sm",
+      lg: "h-12 px-6 text-[15px]",
+      icon: "h-10 w-10 rounded-full",
     };
 
     return (
@@ -45,5 +45,4 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   }
 );
 Button.displayName = "Button";
-
 export { Button };

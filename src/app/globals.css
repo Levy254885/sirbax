@@ -1,42 +1,42 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f0f2f5;
-  --foreground: #0f0f0f;
+  --background: #f5f7fb;
+  --foreground: #0f172a;
   --card: #ffffff;
-  --card-foreground: #0f0f0f;
-  --primary: #0095f6;
+  --card-foreground: #0f172a;
+  --primary: #2563eb;
   --primary-foreground: #ffffff;
-  --secondary: #efefef;
-  --secondary-foreground: #0f0f0f;
-  --muted: #f0f2f5;
-  --muted-foreground: #737373;
-  --accent: #f0f7ff;
-  --accent-foreground: #0095f6;
-  --border: #dbdbdb;
-  --ring: #0095f6;
-  --destructive: #ed4956;
-  --success: #00c853;
-  --radius: 0.5rem;
+  --secondary: #eef2ff;
+  --secondary-foreground: #1e3a8a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #eff6ff;
+  --accent-foreground: #1d4ed8;
+  --border: #e2e8f0;
+  --ring: #3b82f6;
+  --destructive: #ef4444;
+  --success: #22c55e;
+  --radius: 0.875rem;
 }
 
 .dark {
-  --background: #000000;
-  --foreground: #f5f5f5;
-  --card: #121212;
-  --card-foreground: #f5f5f5;
-  --primary: #0095f6;
+  --background: #0b1220;
+  --foreground: #f1f5f9;
+  --card: #111827;
+  --card-foreground: #f1f5f9;
+  --primary: #3b82f6;
   --primary-foreground: #ffffff;
-  --secondary: #262626;
-  --secondary-foreground: #f5f5f5;
-  --muted: #1a1a1a;
-  --muted-foreground: #a8a8a8;
-  --accent: #0d1b2a;
-  --accent-foreground: #4db5ff;
-  --border: #262626;
-  --ring: #0095f6;
-  --destructive: #ed4956;
-  --success: #00c853;
+  --secondary: #1e293b;
+  --secondary-foreground: #e2e8f0;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #172554;
+  --accent-foreground: #93c5fd;
+  --border: #1e293b;
+  --ring: #60a5fa;
+  --destructive: #f87171;
+  --success: #4ade80;
 }
 
 @theme inline {
@@ -61,7 +61,7 @@
   --radius-lg: var(--radius);
 }
 
-* { border-color: var(--border); }
+* { border-color: var(--border); box-sizing: border-box; }
 
 body {
   background: var(--background);
@@ -83,12 +83,19 @@ html { transition: background-color 0.2s ease, color 0.2s ease; }
 .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
 
 .story-ring {
-  background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
-  padding: 2px;
+  background: linear-gradient(135deg, #6366f1 0%, #3b82f6 50%, #06b6d4 100%);
+  padding: 2.5px;
   border-radius: 9999px;
 }
 .story-ring-inner {
   background: var(--card);
   padding: 2px;
   border-radius: 9999px;
+}
+
+.sx-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
