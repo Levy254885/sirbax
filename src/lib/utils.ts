@@ -2,16 +2,29 @@ export function cn(...inputs: (string | undefined | null | false)[]) {
   return inputs.filter(Boolean).join(" ");
 }
 
-export function formatRelativeTime(date: string | Date): string {
+/** Human-readable post age: just now, 5m, 2h, 3d, 12 Jan */
+export function formatRelativeTime(date: string | Date | null | undefined): string {
+  if (!date) return "";
   const d = typeof date === "string" ? new Date(date) : date;
-  const now = new Date();
-  const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
+  if (Number.isNaN(d.getTime())) return "";
 
-  if (diff < 60) return "just now";
+  const now = Date.now();
+  const diffMs = now - d.getTime();
+  const diff = Math.floor(diffMs / 1000);
+
+  if (diff < 0) return "just now";
+  if (diff < 15) return "just now";
+  if (diff < 60) return `${diff}s`;
   if (diff < 3600) return `${Math.floor(diff / 60)}m`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
   if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  if (diff < 2592000) return `${Math.floor(diff / 604800)}w`;
+
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: d.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
+  });
 }
 
 export function formatCount(n: number): string {

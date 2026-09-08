@@ -32,7 +32,8 @@ export function isValidNickname(nickname: string): boolean {
   return !blocked.some((b) => lower.includes(b));
 }
 
+/** Human-style illustrated person avatar (DiceBear adventurer). */
 export function generateDefaultAvatar(seed: string): string {
   const encoded = encodeURIComponent(seed);
-  return `https://api.dicebear.com/9.x/shapes/svg?seed=${encoded}&backgroundColor=0a1628,1e3a5f,0f172a&shape1Color=3b82f6,60a5fa,93c5fd`;
+  return `https://api.dicebear.com/9.x/adventurer/svg?seed=${encoded}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
 }
