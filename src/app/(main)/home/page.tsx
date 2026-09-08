@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { StoriesBar } from "@/components/feed/StoriesBar";
 import { Composer } from "@/components/post/Composer";
 import { PostCard } from "@/components/post/PostCard";
-import { DEMO_POSTS } from "@/lib/demo-data";
+import { getFeedPosts } from "@/services/postService";
+import type { Post } from "@/types";
 import { Bell, Search } from "@/components/ui/Icons";
 import { Avatar } from "@/components/ui/Avatar";
 import { useAuth } from "@/context/AuthContext";
@@ -14,6 +16,23 @@ import Link from "next/link";
 export default function HomePage() {
   const { user } = useAuth();
   const { t } = useI18n();
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = async () => {
+    try {
+      const list = await getFeedPosts();
+      setPosts(list);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refresh();
+  }, []);
 
   return (
     <AppShell>
@@ -48,10 +67,16 @@ export default function HomePage() {
           <StoriesBar />
         </div>
         <div className="mt-2">
-          <Composer />
+          <Composer onPosted={refresh} />
         </div>
         <div className="mt-1 space-y-0">
-          {DEMO_POSTS.map((post) => (
+          {loading && (
+            <p className="py-8 text-center text-sm text-slate-400">{t.loading}</p>
+          )}
+          {!loading && posts.length === 0 && (
+            <p className="py-8 text-center text-sm text-slate-400">{t.noResults}</p>
+          )}
+          {posts.map((post) => (
             <PostCard key={post.id} post={post} />
           ))}
         </div>
