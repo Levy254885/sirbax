@@ -8,10 +8,12 @@ import { DEMO_POSTS } from "@/lib/demo-data";
 import { Bell, Search } from "@/components/ui/Icons";
 import { Avatar } from "@/components/ui/Avatar";
 import { useAuth } from "@/context/AuthContext";
+import { useI18n } from "@/context/I18nContext";
 import Link from "next/link";
 
 export default function HomePage() {
   const { user } = useAuth();
+  const { t } = useI18n();
 
   return (
     <AppShell>
@@ -38,7 +40,7 @@ export default function HomePage() {
       </header>
 
       <div className="hidden border-b border-slate-100 bg-white px-4 py-3 md:block">
-        <h1 className="text-xl font-bold text-slate-900">Home</h1>
+        <h1 className="text-xl font-bold text-slate-900">{t.home}</h1>
       </div>
 
       <div className="bg-slate-50 pb-20 md:pb-4">
