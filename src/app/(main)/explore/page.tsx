@@ -1,47 +1,60 @@
 "use client";
-import { AppShell } from "@/components/layout/AppShell";
-import { Avatar } from "@/components/ui/Avatar";
-import { Button } from "@/components/ui/Button";
-import { Search } from "@/components/ui/Icons";
-import { generateDefaultAvatar } from "@/utils/nickname";
 
-const trending = ["#Motivation","#Technology","#Travel","#Food","#Gaming","#Kenya"];
-const people = [
-  { n: "BrightRiver_421", f: "3.2K" },
-  { n: "Moonlight_508", f: "1.8K" },
-  { n: "ShadowLeaf_673", f: "2.4K" },
+import { AppShell } from "@/components/layout/AppShell";
+import { Search } from "@/components/ui/Icons";
+
+const categories = ["All", "Architecture", "Travel", "Nature", "Food", "Art", "Tech"];
+
+const grid = [
+  "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400&h=400&fit=crop",
+  "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=400&h=400&fit=crop",
+  "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=400&fit=crop",
+  "https://images.unsplash.com/photo-1511811037596-ed2c6c5b5b6a?w=400&h=400&fit=crop",
+  "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=400&fit=crop",
+  "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&h=400&fit=crop",
+  "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=400&h=400&fit=crop",
+  "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=400&h=400&fit=crop",
+  "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=400&h=400&fit=crop",
+  "https://images.unsplash.com/photo-1493246507139-91e8fad9978e?w=400&h=400&fit=crop",
+  "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=400&h=400&fit=crop",
+  "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=400&h=400&fit=crop",
 ];
 
 export default function ExplorePage() {
   return (
     <AppShell>
       <div className="sticky top-0 z-40 border-b border-border bg-card/95 px-4 py-3 backdrop-blur-md">
-        <h1 className="text-xl font-bold">Explore</h1>
-        <div className="relative mt-3">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input type="search" placeholder="Search people, posts, communities..." className="h-10 w-full rounded-full border border-border bg-muted pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+          <input
+            type="search"
+            placeholder="Search"
+            className="h-10 w-full rounded-xl border-0 bg-muted pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto">
+          {categories.map((c, i) => (
+            <button
+              key={c}
+              className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                i === 0
+                  ? "bg-foreground text-background"
+                  : "bg-muted text-foreground hover:bg-secondary"
+              }`}
+            >
+              {c}
+            </button>
+          ))}
         </div>
       </div>
-      <div className="p-4">
-        <h2 className="mb-3 text-sm font-semibold">Trending</h2>
-        <div className="mb-6 flex flex-wrap gap-2">
-          {trending.map((t) => (
-            <button key={t} className="rounded-full bg-muted px-3 py-1.5 text-sm font-medium hover:bg-accent">{t}</button>
-          ))}
-        </div>
-        <h2 className="mb-3 text-sm font-semibold">Suggested people</h2>
-        <div className="space-y-3">
-          {people.map((p) => (
-            <div key={p.n} className="flex items-center gap-3">
-              <Avatar src={generateDefaultAvatar(p.n)} alt={p.n} size="md" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{p.n}</p>
-                <p className="text-xs text-muted-foreground">{p.f} followers</p>
-              </div>
-              <Button size="sm" variant="outline">Follow</Button>
-            </div>
-          ))}
-        </div>
+
+      <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
+        {grid.map((src, i) => (
+          <button key={i} className="relative aspect-square overflow-hidden bg-muted">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={src} alt="" className="h-full w-full object-cover transition-transform hover:scale-105" />
+          </button>
+        ))}
       </div>
     </AppShell>
   );
