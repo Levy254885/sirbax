@@ -2,48 +2,70 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Search, PlusCircle, Heart, User } from "@/components/ui/Icons";
+import { Home, Search, MessageCircle, User } from "@/components/ui/Icons";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/context/AuthContext";
-import { Avatar } from "@/components/ui/Avatar";
 
-const items = [
+const sideItems = [
   { href: "/home", icon: Home, label: "Home" },
-  { href: "/explore", icon: Search, label: "Search" },
-  { href: "/create", icon: PlusCircle, label: "Create" },
-  { href: "/notifications", icon: Heart, label: "Activity" },
-  { href: "/profile", icon: User, label: "Profile", isProfile: true },
+  { href: "/explore", icon: Search, label: "Explore" },
+];
+
+const rightItems = [
+  { href: "/messages", icon: MessageCircle, label: "Messages", badge: 2 },
+  { href: "/profile", icon: User, label: "Profile" },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
-  const { user } = useAuth();
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-md pb-safe md:hidden">
-      <div className="flex h-14 items-center justify-around px-2">
-        {items.map(({ href, icon: Icon, label, isProfile }) => {
+      <div className="relative flex h-16 items-center justify-around px-2">
+        {sideItems.map(({ href, icon: Icon, label }) => {
           const active = pathname.startsWith(href);
           return (
             <Link
               key={href}
               href={href}
               className={cn(
-                "flex flex-col items-center justify-center p-2",
-                active ? "text-foreground" : "text-muted-foreground"
+                "flex flex-1 flex-col items-center gap-0.5 py-1 text-[10px] font-medium",
+                active ? "text-primary" : "text-muted-foreground"
               )}
-              aria-label={label}
             >
-              {isProfile && user ? (
-                <Avatar
-                  src={user.avatarUrl}
-                  alt={user.nickname}
-                  size="sm"
-                  className={cn("h-6 w-6", active && "ring-2 ring-foreground")}
-                />
-              ) : (
-                <Icon className="h-6 w-6" strokeWidth={active ? 2.5 : 1.8} />
+              <Icon className="h-6 w-6" strokeWidth={active ? 2.5 : 2} />
+              {label}
+            </Link>
+          );
+        })}
+
+        <div className="flex flex-1 items-center justify-center">
+          <Link
+            href="/create"
+            className="-mt-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/40"
+            aria-label="Create"
+          >
+            <span className="text-3xl font-light leading-none">+</span>
+          </Link>
+        </div>
+
+        {rightItems.map(({ href, icon: Icon, label, badge }) => {
+          const active = pathname.startsWith(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "relative flex flex-1 flex-col items-center gap-0.5 py-1 text-[10px] font-medium",
+                active ? "text-primary" : "text-muted-foreground"
               )}
+            >
+              <Icon className="h-6 w-6" strokeWidth={active ? 2.5 : 2} />
+              {label}
+              {badge ? (
+                <span className="absolute right-[22%] top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-white">
+                  {badge}
+                </span>
+              ) : null}
             </Link>
           );
         })}
