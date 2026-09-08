@@ -33,3 +33,5 @@ export const LogOut = (p: IconProps) => (<Icon {...p}><path d="M9 21H5a2 2 0 0 1
 export const ChevronRight = (p: IconProps) => (<Icon {...p}><path d="m9 18 6-6-6-6" /></Icon>);
 export const ArrowLeft = (p: IconProps) => (<Icon {...p}><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></Icon>);
 export const Send = (p: IconProps) => (<Icon {...p}><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></Icon>);
+export const ThumbsUp = (p: IconProps) => (<Icon {...p}><path d="M7 10v12" /><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" /></Icon>);
+export const Globe = (p: IconProps) => (<Icon {...p}><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></Icon>);
