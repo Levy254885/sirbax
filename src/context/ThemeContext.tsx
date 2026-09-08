@@ -18,12 +18,20 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("system");
+  // Default: light (white). Users can switch to dark/system in Settings.
+  const [theme, setThemeState] = useState<Theme>("light");
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
     const stored = localStorage.getItem("sirbax-theme") as Theme | null;
-    if (stored) setThemeState(stored);
+    // Only apply stored preference if user explicitly chose one
+    if (stored === "light" || stored === "dark" || stored === "system") {
+      setThemeState(stored);
+    } else {
+      // Force light for first-time / no preference
+      localStorage.setItem("sirbax-theme", "light");
+      setThemeState("light");
+    }
   }, []);
 
   useEffect(() => {
@@ -35,6 +43,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         theme === "dark" || (theme === "system" && media.matches);
       setResolvedTheme(isDark ? "dark" : "light");
       root.classList.toggle("dark", isDark);
+      // Ensure no dark class when light
+      if (!isDark) root.classList.remove("dark");
     };
 
     apply();
