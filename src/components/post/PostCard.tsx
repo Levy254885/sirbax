@@ -3,18 +3,25 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
-import { Heart, MessageCircle, Share2, MoreHorizontal, Bookmark } from "@/components/ui/Icons";
+import {
+  ThumbsUp,
+  MessageCircle,
+  Share2,
+  MoreHorizontal,
+  Bookmark,
+  Globe,
+} from "@/components/ui/Icons";
 import { formatRelativeTime, formatCount, cn } from "@/lib/utils";
 import type { Post, ReactionType } from "@/types";
 
-const REACTIONS: { type: ReactionType; emoji: string }[] = [
-  { type: "like", emoji: "👍" },
-  { type: "love", emoji: "❤️" },
-  { type: "care", emoji: "🤗" },
-  { type: "haha", emoji: "😂" },
-  { type: "wow", emoji: "😮" },
-  { type: "sad", emoji: "😢" },
-  { type: "angry", emoji: "😡" },
+const REACTIONS: { type: ReactionType; emoji: string; label: string }[] = [
+  { type: "like", emoji: "👍", label: "Like" },
+  { type: "love", emoji: "❤️", label: "Love" },
+  { type: "care", emoji: "🤗", label: "Care" },
+  { type: "haha", emoji: "😂", label: "Haha" },
+  { type: "wow", emoji: "😮", label: "Wow" },
+  { type: "sad", emoji: "😢", label: "Sad" },
+  { type: "angry", emoji: "😡", label: "Angry" },
 ];
 
 export function PostCard({ post }: { post: Post }) {
@@ -38,87 +45,112 @@ export function PostCard({ post }: { post: Post }) {
   };
 
   const active = REACTIONS.find((r) => r.type === reaction);
+  const topEmojis = Object.entries(post.reactions || {})
+    .sort((a, b) => (b[1] as number) - (a[1] as number))
+    .slice(0, 3)
+    .map(([t]) => REACTIONS.find((r) => r.type === t)?.emoji)
+    .filter(Boolean);
 
   return (
-    <article className="border-b border-border bg-card">
-      <div className="flex items-center gap-3 px-4 py-3">
+    <article className="mx-3 mb-2 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+      <div className="flex items-start gap-3 px-4 pt-3">
         <Avatar src={post.authorAvatar} alt={post.authorNickname} size="md" />
         <div className="min-w-0 flex-1">
           <Link href={`/post/${post.id}`} className="text-sm font-semibold hover:underline">
             {post.authorNickname}
           </Link>
-          {post.location && (
-            <p className="text-xs text-muted-foreground">{post.location}</p>
-          )}
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <span>{formatRelativeTime(post.createdAt)}</span>
+            <span>·</span>
+            <Globe className="h-3 w-3" />
+          </div>
         </div>
         <button className="rounded-full p-1.5 text-muted-foreground hover:bg-muted">
           <MoreHorizontal className="h-5 w-5" />
         </button>
       </div>
 
+      <p className="whitespace-pre-wrap px-4 py-2 text-[15px] leading-relaxed">
+        {post.content}
+      </p>
+
       {post.media?.[0] && (
-        <div className="relative aspect-square w-full bg-muted sm:aspect-[4/5] md:aspect-auto md:max-h-[600px]">
+        <div className="relative w-full bg-muted">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={post.media[0].url} alt="" className="h-full w-full object-cover" />
+          <img src={post.media[0].url} alt="" className="max-h-[480px] w-full object-cover" />
         </div>
       )}
 
-      <div className="px-4 pt-3">
-        <div className="relative flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              {showReactions && (
-                <div className="absolute bottom-full left-0 z-20 mb-2 flex gap-1 rounded-full border border-border bg-card px-2 py-1.5 shadow-lg">
-                  {REACTIONS.map((r) => (
-                    <button key={r.type} onClick={() => onReact(r.type)} className="text-xl transition-transform hover:scale-125">
-                      {r.emoji}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <button
-                onClick={() => onReact(reaction || "love")}
-                onMouseEnter={() => setShowReactions(true)}
-                onMouseLeave={() => setTimeout(() => setShowReactions(false), 300)}
-                className="p-0.5"
-              >
-                {active ? (
-                  <span className="text-2xl leading-none">{active.emoji}</span>
-                ) : (
-                  <Heart className={cn("h-6 w-6", liked && "fill-destructive text-destructive")} />
-                )}
-              </button>
+      <div className="flex items-center justify-between px-4 py-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1">
+          {topEmojis.length > 0 ? (
+            <>
+              <span className="flex -space-x-1">
+                {topEmojis.map((e, i) => (
+                  <span key={i} className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-card text-sm ring-1 ring-border">
+                    {e}
+                  </span>
+                ))}
+              </span>
+              <span className="ml-1">{formatCount(likes)}</span>
+            </>
+          ) : (
+            <span>{formatCount(likes)} reactions</span>
+          )}
+        </div>
+        <div className="flex gap-3">
+          <span>{formatCount(post.commentsCount)} comments</span>
+          <span>{formatCount(post.sharesCount)} shares</span>
+        </div>
+      </div>
+
+      <div className="relative mx-3 flex items-center justify-between border-t border-border py-1">
+        <div className="relative flex-1">
+          {showReactions && (
+            <div className="absolute bottom-full left-0 z-20 mb-1 flex gap-1 rounded-full border border-border bg-card px-2 py-1.5 shadow-lg">
+              {REACTIONS.map((r) => (
+                <button key={r.type} onClick={() => onReact(r.type)} className="text-xl transition-transform hover:scale-125" title={r.label}>
+                  {r.emoji}
+                </button>
+              ))}
             </div>
-            <Link href={`/post/${post.id}`} className="p-0.5">
-              <MessageCircle className="h-6 w-6" />
-            </Link>
-            <button className="p-0.5">
-              <Share2 className="h-6 w-6" />
-            </button>
-          </div>
-          <button onClick={() => setSaved(!saved)} className="p-0.5">
-            <Bookmark className={cn("h-6 w-6", saved && "fill-foreground")} />
+          )}
+          <button
+            className={cn(
+              "flex w-full items-center justify-center gap-1.5 rounded-lg py-2.5 text-sm font-medium hover:bg-muted",
+              liked && "text-primary"
+            )}
+            onClick={() => onReact(reaction || "like")}
+            onMouseEnter={() => setShowReactions(true)}
+            onMouseLeave={() => setTimeout(() => setShowReactions(false), 350)}
+          >
+            {active ? (
+              <span className="text-base">{active.emoji}</span>
+            ) : (
+              <ThumbsUp className={cn("h-5 w-5", liked && "fill-current")} />
+            )}
+            <span>{active?.label || "Like"}</span>
           </button>
         </div>
-
-        <p className="mt-2 text-sm font-semibold">{formatCount(likes)} likes</p>
-
-        <p className="mt-1 text-sm">
-          <span className="font-semibold">{post.authorNickname}</span>{" "}
-          <span className="whitespace-pre-wrap">{post.content}</span>
-        </p>
-
-        {post.commentsCount > 0 && (
-          <Link href={`/post/${post.id}`} className="mt-1 block text-sm text-muted-foreground">
-            View all {post.commentsCount} comments
-          </Link>
-        )}
-
-        <p className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground">
-          {formatRelativeTime(post.createdAt)}
-        </p>
+        <Link href={`/post/${post.id}`} className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted">
+          <MessageCircle className="h-5 w-5" />
+          <span>Comment</span>
+        </Link>
+        <button className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted">
+          <Share2 className="h-5 w-5" />
+          <span>Share</span>
+        </button>
+        <button
+          className={cn(
+            "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 text-sm font-medium hover:bg-muted",
+            saved ? "text-primary" : "text-muted-foreground"
+          )}
+          onClick={() => setSaved(!saved)}
+        >
+          <Bookmark className={cn("h-5 w-5", saved && "fill-current")} />
+          <span className="hidden sm:inline">Save</span>
+        </button>
       </div>
-      <div className="h-2" />
     </article>
   );
 }
