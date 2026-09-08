@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("sirbax-demo-user", JSON.stringify(DEMO_USER));
   }, []);
 
-  const loginWithEmail = useCallback(async (email: string, _password: string) => {
+  const loginWithEmail = useCallback(async (_email: string, _password: string) => {
     if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
       enterDemo();
       return;
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     throw new Error("Firebase not fully configured yet. Use demo mode.");
   }, [enterDemo]);
 
-  const registerWithEmail = useCallback(async (email: string, _password: string) => {
+  const registerWithEmail = useCallback(async (_email: string, _password: string) => {
     if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
       const nickname = generateAnonymousNickname();
       const newUser: UserProfile = {
