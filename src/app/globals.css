@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5f7fb;
+  --background: #ffffff;
   --foreground: #0f172a;
   --card: #ffffff;
   --card-foreground: #0f172a;
   --primary: #2563eb;
   --primary-foreground: #ffffff;
-  --secondary: #eef2ff;
+  --secondary: #eff6ff;
   --secondary-foreground: #1e3a8a;
   --muted: #f1f5f9;
   --muted-foreground: #64748b;
@@ -63,15 +63,23 @@
 
 * { border-color: var(--border); box-sizing: border-box; }
 
+html {
+  background: #ffffff;
+  color: #0f172a;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: #ffffff;
+  color: #0f172a;
   font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-html { transition: background-color 0.2s ease, color 0.2s ease; }
+html.dark, html.dark body {
+  background: #0b1220;
+  color: #f1f5f9;
+}
 
 :focus-visible {
   outline: 2px solid var(--ring);
@@ -88,14 +96,10 @@ html { transition: background-color 0.2s ease, color 0.2s ease; }
   border-radius: 9999px;
 }
 .story-ring-inner {
-  background: var(--card);
+  background: #ffffff;
   padding: 2px;
   border-radius: 9999px;
 }
-
-.sx-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 1rem;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+html.dark .story-ring-inner {
+  background: #111827;
 }
