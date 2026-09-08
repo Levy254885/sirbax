@@ -8,9 +8,11 @@ import { useAuth } from "@/context/AuthContext";
 import { DEMO_POSTS } from "@/lib/demo-data";
 import { Settings } from "@/components/ui/Icons";
 import Link from "next/link";
+import { useState } from "react";
 
 export default function ProfilePage() {
   const { user } = useAuth();
+  const [tab, setTab] = useState(0);
   if (!user) return null;
 
   return (
@@ -20,34 +22,48 @@ export default function ProfilePage() {
         <Link href="/settings" className="p-1"><Settings className="h-6 w-6" /></Link>
       </div>
 
-      <div className="px-4 py-6">
-        <div className="flex items-start gap-6">
-          <Avatar src={user.avatarUrl} alt={user.nickname} size="2xl" className="h-20 w-20 md:h-24 md:w-24" />
-          <div className="flex-1">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <h1 className="hidden text-xl font-light md:block">{user.nickname}</h1>
-              <Button variant="secondary" size="sm" className="font-semibold">Edit profile</Button>
-              <Link href="/settings" className="hidden md:block">
-                <Button variant="ghost" size="icon"><Settings className="h-5 w-5" /></Button>
-              </Link>
-            </div>
-            <div className="mb-3 flex gap-6 text-sm">
-              <span><strong className="font-semibold">{user.postsCount}</strong> posts</span>
-              <button><strong className="font-semibold">{user.followersCount.toLocaleString()}</strong> followers</button>
-              <button><strong className="font-semibold">{user.followingCount}</strong> following</button>
-            </div>
-            <p className="text-sm font-semibold">{user.nickname}</p>
-            {user.bio && <p className="text-sm text-foreground/80">{user.bio}</p>}
+      <div className="bg-card px-4 pb-4 pt-6">
+        <div className="flex items-start gap-4">
+          <Avatar src={user.avatarUrl} alt={user.nickname} className="h-20 w-20 ring-4 ring-primary/10 md:h-24 md:w-24" />
+          <div className="min-w-0 flex-1 pt-1">
+            <h1 className="truncate text-xl font-bold">{user.nickname}</h1>
+            <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+              {user.bio || "Just a curious mind. Here for good vibes and great conversations."}
+            </p>
           </div>
+        </div>
+
+        <div className="mt-5 flex justify-around text-center">
+          <div>
+            <p className="text-lg font-bold">{user.postsCount}</p>
+            <p className="text-xs text-muted-foreground">Posts</p>
+          </div>
+          <button>
+            <p className="text-lg font-bold">{user.followersCount.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">Followers</p>
+          </button>
+          <button>
+            <p className="text-lg font-bold">{user.followingCount}</p>
+            <p className="text-xs text-muted-foreground">Following</p>
+          </button>
+        </div>
+
+        <div className="mt-4 flex gap-2">
+          <Button variant="secondary" size="sm" className="flex-1">Edit profile</Button>
+          <Button variant="outline" size="sm" className="flex-1">Share profile</Button>
+          <Link href="/settings">
+            <Button variant="outline" size="icon"><Settings className="h-4 w-4" /></Button>
+          </Link>
         </div>
       </div>
 
-      <div className="flex border-t border-border">
-        {["Posts", "Saved", "Tagged"].map((t, i) => (
+      <div className="flex border-b border-border bg-card">
+        {["Posts", "Replies", "Media", "Likes"].map((t, i) => (
           <button
             key={t}
-            className={`flex-1 py-3 text-center text-xs font-semibold uppercase tracking-wider ${
-              i === 0 ? "border-t-2 border-foreground text-foreground" : "text-muted-foreground"
+            onClick={() => setTab(i)}
+            className={`flex-1 py-3 text-center text-sm font-semibold ${
+              tab === i ? "border-b-2 border-primary text-primary" : "text-muted-foreground"
             }`}
           >
             {t}
@@ -55,9 +71,11 @@ export default function ProfilePage() {
         ))}
       </div>
 
-      {DEMO_POSTS.map((p) => (
-        <PostCard key={p.id} post={p} />
-      ))}
+      <div className="pt-2">
+        {DEMO_POSTS.map((p) => (
+          <PostCard key={p.id} post={p} />
+        ))}
+      </div>
     </AppShell>
   );
 }
