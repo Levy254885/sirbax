@@ -10,31 +10,16 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  (
-    {
-      className,
-      variant = "primary",
-      size = "md",
-      loading,
-      disabled,
-      children,
-      ...props
-    },
-    ref
-  ) => {
+  ({ className, variant = "primary", size = "md", loading, disabled, children, ...props }, ref) => {
     const base =
-      "inline-flex items-center justify-center gap-2 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 rounded-xl";
+      "inline-flex items-center justify-center gap-2 font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 rounded-lg";
 
     const variants = {
-      primary:
-        "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm",
-      secondary:
-        "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-      ghost: "hover:bg-muted text-foreground",
-      outline:
-        "border border-border bg-transparent hover:bg-muted text-foreground",
-      destructive:
-        "bg-destructive text-white hover:bg-destructive/90",
+      primary: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm",
+      secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+      ghost: "hover:bg-muted text-foreground font-medium",
+      outline: "border border-border bg-transparent hover:bg-muted text-foreground font-medium",
+      destructive: "bg-destructive text-white hover:bg-destructive/90",
     };
 
     const sizes = {
