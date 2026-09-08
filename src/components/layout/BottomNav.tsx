@@ -4,9 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Search, MessageCircle, User } from "@/components/ui/Icons";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/context/I18nContext";
 
 export function BottomNav() {
   const pathname = usePathname();
+  const { t } = useI18n();
 
   const item = (href: string, Icon: typeof Home, label: string, badge?: number) => {
     const active = pathname.startsWith(href);
@@ -33,19 +35,19 @@ export function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white pb-safe md:hidden">
       <div className="flex h-16 items-center px-1">
-        {item("/home", Home, "Home")}
-        {item("/explore", Search, "Explore")}
+        {item("/home", Home, t.home)}
+        {item("/explore", Search, t.explore)}
         <div className="flex flex-1 items-center justify-center">
           <Link
             href="/create"
             className="-mt-5 flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg shadow-blue-600/30"
-            aria-label="Create"
+            aria-label={t.create}
           >
             <span className="text-2xl font-light leading-none">+</span>
           </Link>
         </div>
-        {item("/messages", MessageCircle, "Messages", 2)}
-        {item("/profile", User, "Profile")}
+        {item("/messages", MessageCircle, t.messages, 2)}
+        {item("/profile", User, t.profile)}
       </div>
     </nav>
   );
