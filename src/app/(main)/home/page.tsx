@@ -40,20 +40,23 @@ export default function HomePage() {
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600">
             <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-white">
-              <path d="M12 3c-4.5 0-8 3-8 7.2 0 2.4 1.2 4.5 3.1 5.8L6 21l4.2-2.3c.6.1 1.2.2 1.8.2 4.5 0 8-3 8-7.2S16.5 3 12 3z" fill="currentColor" />
+              <path
+                d="M12 3c-4.5 0-8 3-8 7.2 0 2.4 1.2 4.5 3.1 5.8L6 21l4.2-2.3c.6.1 1.2.2 1.8.2 4.5 0 8-3 8-7.2S16.5 3 12 3z"
+                fill="currentColor"
+              />
             </svg>
           </div>
           <span className="text-lg font-bold tracking-tight text-slate-900">sirbax</span>
         </div>
-        <div className="flex items-center gap-1">
-          <Link href="/explore" className="rounded-full p-2 text-slate-600 hover:bg-slate-100">
+        <div className="flex items-center gap-0.5">
+          <Link href="/explore" className="rounded-full p-2 text-slate-600 transition hover:bg-slate-50">
             <Search className="h-5 w-5" />
           </Link>
-          <Link href="/notifications" className="rounded-full p-2 text-slate-600 hover:bg-slate-100">
+          <Link href="/notifications" className="rounded-full p-2 text-slate-600 transition hover:bg-slate-50">
             <Bell className="h-5 w-5" />
           </Link>
           <Link href="/profile" className="ml-0.5">
-            <Avatar src={user?.avatarUrl} alt={user?.nickname || ""} className="h-8 w-8" />
+            <Avatar src={user?.avatarUrl} alt={user?.nickname || ""} className="h-8 w-8 ring-2 ring-slate-100" />
           </Link>
         </div>
       </header>
@@ -62,19 +65,19 @@ export default function HomePage() {
         <h1 className="text-xl font-bold text-slate-900">{t.home}</h1>
       </div>
 
-      <div className="bg-slate-50 pb-20 md:pb-4">
+      <div className="bg-white pb-20 md:bg-slate-50 md:pb-4">
         <div className="border-b border-slate-100 bg-white">
           <StoriesBar />
         </div>
-        <div className="mt-2">
+        <div className="border-b border-slate-100 bg-white md:mt-2 md:border-0">
           <Composer onPosted={refresh} />
         </div>
-        <div className="mt-1 space-y-0">
+        <div className="md:mt-1">
           {loading && (
-            <p className="py-8 text-center text-sm text-slate-400">{t.loading}</p>
+            <p className="py-10 text-center text-sm text-slate-400">{t.loading}</p>
           )}
           {!loading && posts.length === 0 && (
-            <p className="py-8 text-center text-sm text-slate-400">{t.noResults}</p>
+            <p className="py-10 text-center text-sm text-slate-400">{t.noResults}</p>
           )}
           {posts.map((post) => (
             <PostCard key={post.id} post={post} />
