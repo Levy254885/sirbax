@@ -1,7 +1,6 @@
 /**
  * Posts: Firebase Firestore is source of truth.
- * Image URLs are Cloudinary secure HTTPS URLs only — never binary/base64.
- * Feed is ranked by engagement + recency.
+ * Feed ranked by engagement + recency.
  */
 import {
   collection,
@@ -20,7 +19,7 @@ import {
 import { db, isFirebaseConfigured } from "@/firebase/config";
 import type { Post, ReactionType } from "@/types";
 import { DEMO_POSTS } from "@/lib/demo-data";
-import { rankPosts } from "@/services/socialService";
+import { rankPosts } from "@/services/feedRank";
 
 const STORAGE_KEY = "sirbax-posts";
 
@@ -74,11 +73,7 @@ export async function getFeedPosts(max = 50): Promise<Post[]> {
     return rankPosts(loadLocal()).slice(0, max);
   }
   try {
-    const q = query(
-      collection(db, "posts"),
-      orderBy("createdAt", "desc"),
-      limit(80)
-    );
+    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(80));
     const snap = await getDocs(q);
     if (snap.empty) return rankPosts(loadLocal()).slice(0, max);
     const posts = snap.docs.map((d) => mapDoc(d.id, d.data()));
@@ -99,9 +94,7 @@ export async function getPostById(id: string): Promise<Post | null> {
     return loadLocal().find((p) => p.id === id) || null;
   }
   const snap = await getDoc(doc(db, "posts", id));
-  if (!snap.exists()) {
-    return loadLocal().find((p) => p.id === id) || null;
-  }
+  if (!snap.exists()) return loadLocal().find((p) => p.id === id) || null;
   return mapDoc(snap.id, snap.data());
 }
 
@@ -146,8 +139,7 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
       createdAt: now,
       updatedAt: now,
     };
-    const posts = [post, ...loadLocal()];
-    saveLocal(posts);
+    saveLocal([post, ...loadLocal()]);
     return post;
   }
 
@@ -173,7 +165,6 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
     createdAt: now,
     updatedAt: now,
   };
-  // also keep a local copy so author sees it immediately
   try {
     saveLocal([post, ...loadLocal().filter((p) => p.id !== post.id)]);
   } catch {
@@ -182,29 +173,21 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
   return post;
 }
 
-export async function reactToPost(
-  postId: string,
-  _uid: string,
-  type: ReactionType
-): Promise<void> {
+export async function reactToPost(postId: string, _uid: string, type: ReactionType): Promise<void> {
   if (!isFirebaseConfigured) {
     const posts = loadLocal().map((p) =>
       p.id === postId
         ? {
             ...p,
             likesCount: (p.likesCount || 0) + 1,
-            reactions: {
-              ...p.reactions,
-              [type]: ((p.reactions?.[type] as number) || 0) + 1,
-            },
+            reactions: { ...p.reactions, [type]: ((p.reactions?.[type] as number) || 0) + 1 },
           }
         : p
     );
     saveLocal(posts);
     return;
   }
-  const ref = doc(db, "posts", postId);
-  await updateDoc(ref, {
+  await updateDoc(doc(db, "posts", postId), {
     likesCount: increment(1),
     [`reactions.${type}`]: increment(1),
     updatedAt: serverTimestamp(),

@@ -1,23 +1,24 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
-import { DEMO_STORIES } from "@/lib/demo-data";
+import { listStories, type StoryItem } from "@/services/socialService";
 import { Plus } from "@/components/ui/Icons";
 
-/**
- * Instagram-style circular stories on a clean white background.
- * Perfect circles + gradient ring for unviewed, soft gray for "Your story".
- */
 export function StoriesBar() {
   const { user } = useAuth();
   const { t } = useI18n();
+  const [stories, setStories] = useState<StoryItem[]>([]);
+
+  useEffect(() => {
+    listStories().then(setStories);
+  }, []);
 
   return (
     <div className="no-scrollbar flex gap-4 overflow-x-auto bg-white px-4 py-3">
-      {/* Your story */}
-      <Link href="/create" className="flex w-[72px] shrink-0 flex-col items-center gap-1.5">
+      <Link href="/stories/create" className="flex w-[72px] shrink-0 flex-col items-center gap-1.5">
         <div className="relative">
           <div className="flex h-[68px] w-[68px] items-center justify-center rounded-full bg-slate-100 ring-2 ring-slate-200">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -31,25 +32,15 @@ export function StoriesBar() {
             <Plus className="h-3.5 w-3.5" strokeWidth={3} />
           </span>
         </div>
-        <span className="w-full truncate text-center text-[11px] font-medium text-slate-700">
-          {t.yourStory}
-        </span>
+        <span className="w-full truncate text-center text-[11px] font-medium text-slate-700">{t.yourStory}</span>
       </Link>
 
-      {DEMO_STORIES.map((story) => (
-        <Link
-          key={story.id}
-          href={`/stories/${story.id}`}
-          className="flex w-[72px] shrink-0 flex-col items-center gap-1.5"
-        >
+      {stories.map((story) => (
+        <Link key={story.id} href={`/stories/${story.id}`} className="flex w-[72px] shrink-0 flex-col items-center gap-1.5">
           <div className="story-ring flex h-[68px] w-[68px] items-center justify-center rounded-full">
             <div className="story-ring-inner flex items-center justify-center rounded-full">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={story.authorAvatar}
-                alt={story.authorNickname}
-                className="h-[56px] w-[56px] rounded-full object-cover bg-slate-100"
-              />
+              <img src={story.authorAvatar} alt={story.authorNickname} className="h-[56px] w-[56px] rounded-full object-cover bg-slate-100" />
             </div>
           </div>
           <span className="w-full truncate text-center text-[11px] font-medium text-slate-700">
