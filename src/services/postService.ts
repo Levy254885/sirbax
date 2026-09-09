@@ -1,6 +1,6 @@
 /**
- * Posts: Firebase Firestore is source of truth.
- * Feed ranked by engagement + recency.
+ * Posts: Firebase when available, always mirrored to localStorage so the
+ * author (and this browser) always sees new posts immediately.
  */
 import {
   collection,
@@ -27,7 +27,10 @@ function loadLocal(): Post[] {
   if (typeof window === "undefined") return [...DEMO_POSTS];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as Post[];
+    if (raw) {
+      const parsed = JSON.parse(raw) as Post[];
+      if (Array.isArray(parsed) && parsed.length) return parsed;
+    }
   } catch {
     /* ignore */
   }
@@ -36,7 +39,11 @@ function loadLocal(): Post[] {
 
 function saveLocal(posts: Post[]) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
+  } catch {
+    /* quota */
+  }
 }
 
 function mapDoc(id: string, data: Record<string, unknown>): Post {
@@ -68,34 +75,48 @@ function mapDoc(id: string, data: Record<string, unknown>): Post {
   };
 }
 
-export async function getFeedPosts(max = 50): Promise<Post[]> {
-  if (!isFirebaseConfigured) {
-    return rankPosts(loadLocal()).slice(0, max);
+function mergeUnique(primary: Post[], secondary: Post[]): Post[] {
+  const seen = new Set(primary.map((p) => p.id));
+  const out = [...primary];
+  for (const p of secondary) {
+    if (!seen.has(p.id)) {
+      seen.add(p.id);
+      out.push(p);
+    }
   }
+  return out;
+}
+
+export async function getFeedPosts(max = 50): Promise<Post[]> {
+  const local = loadLocal();
+
+  if (!isFirebaseConfigured) {
+    return rankPosts(local).slice(0, max);
+  }
+
   try {
     const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(80));
     const snap = await getDocs(q);
-    if (snap.empty) return rankPosts(loadLocal()).slice(0, max);
-    const posts = snap.docs.map((d) => mapDoc(d.id, d.data()));
-    const local = loadLocal();
-    const ids = new Set(posts.map((p) => p.id));
-    for (const lp of local) {
-      if (!ids.has(lp.id)) posts.push(lp);
-    }
-    return rankPosts(posts).slice(0, max);
+    const remote = snap.docs.map((d) => mapDoc(d.id, d.data()));
+    const merged = mergeUnique(local, remote);
+    return rankPosts(merged).slice(0, max);
   } catch (e) {
     console.error("getFeedPosts", e);
-    return rankPosts(loadLocal()).slice(0, max);
+    return rankPosts(local).slice(0, max);
   }
 }
 
 export async function getPostById(id: string): Promise<Post | null> {
-  if (!isFirebaseConfigured) {
-    return loadLocal().find((p) => p.id === id) || null;
+  const localHit = loadLocal().find((p) => p.id === id);
+  if (localHit) return localHit;
+  if (!isFirebaseConfigured) return null;
+  try {
+    const snap = await getDoc(doc(db, "posts", id));
+    if (!snap.exists()) return null;
+    return mapDoc(snap.id, snap.data());
+  } catch {
+    return null;
   }
-  const snap = await getDoc(doc(db, "posts", id));
-  if (!snap.exists()) return loadLocal().find((p) => p.id === id) || null;
-  return mapDoc(snap.id, snap.data());
 }
 
 export interface CreatePostInput {
@@ -113,11 +134,13 @@ export interface CreatePostInput {
 
 export async function createPost(input: CreatePostInput): Promise<Post> {
   const now = new Date().toISOString();
-  const base = {
+  const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  const baseFields = {
     authorId: input.authorId,
     authorNickname: input.authorNickname,
     authorAvatar: input.authorAvatar || "",
-    content: input.content,
+    content: input.content || "",
     media: input.media || null,
     visibility: input.visibility || "everyone",
     hashtags: input.hashtags || [],
@@ -125,71 +148,79 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
     likesCount: 0,
     commentsCount: 0,
     sharesCount: 0,
-    reactions: {},
+    reactions: {} as Record<string, number>,
     isEdited: false,
     commentsDisabled: input.commentsDisabled ?? false,
     sharesDisabled: input.sharesDisabled ?? false,
   };
 
-  if (!isFirebaseConfigured) {
-    const post: Post = {
-      id: `local-${Date.now()}`,
-      ...base,
-      media: input.media,
-      createdAt: now,
-      updatedAt: now,
-    };
-    saveLocal([post, ...loadLocal()]);
-    return post;
-  }
-
-  const ref = await addDoc(collection(db, "posts"), {
-    ...base,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-
-  try {
-    await updateDoc(doc(db, "users", input.authorId), {
-      postsCount: increment(1),
-      updatedAt: serverTimestamp(),
-    });
-  } catch {
-    /* ignore */
-  }
-
-  const post: Post = {
-    id: ref.id,
-    ...base,
+  const localPost: Post = {
+    id: localId,
+    ...baseFields,
     media: input.media,
     createdAt: now,
     updatedAt: now,
   };
-  try {
-    saveLocal([post, ...loadLocal().filter((p) => p.id !== post.id)]);
-  } catch {
-    /* ignore */
+  saveLocal([localPost, ...loadLocal().filter((p) => p.id !== localId)]);
+
+  if (!isFirebaseConfigured) {
+    return localPost;
   }
-  return post;
+
+  try {
+    const ref = await addDoc(collection(db, "posts"), {
+      ...baseFields,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    try {
+      await updateDoc(doc(db, "users", input.authorId), {
+        postsCount: increment(1),
+        updatedAt: serverTimestamp(),
+      });
+    } catch {
+      /* optional */
+    }
+
+    const remotePost: Post = { ...localPost, id: ref.id };
+    const posts = loadLocal().map((p) => (p.id === localId ? remotePost : p));
+    saveLocal(posts);
+    return remotePost;
+  } catch (e) {
+    console.error("createPost firebase failed, kept local", e);
+    return localPost;
+  }
 }
 
-export async function reactToPost(postId: string, _uid: string, type: ReactionType): Promise<void> {
-  if (!isFirebaseConfigured) {
-    const posts = loadLocal().map((p) =>
-      p.id === postId
-        ? {
-            ...p,
-            likesCount: (p.likesCount || 0) + 1,
-            reactions: { ...p.reactions, [type]: ((p.reactions?.[type] as number) || 0) + 1 },
-          }
-        : p
-    );
-    saveLocal(posts);
-    return;
+export async function reactToPost(
+  postId: string,
+  _uid: string,
+  type: ReactionType
+): Promise<void> {
+  const posts = loadLocal().map((p) =>
+    p.id === postId
+      ? {
+          ...p,
+          likesCount: (p.likesCount || 0) + 1,
+          reactions: {
+            ...p.reactions,
+            [type]: ((p.reactions?.[type] as number) || 0) + 1,
+          },
+        }
+      : p
+  );
+  saveLocal(posts);
+
+  if (!isFirebaseConfigured) return;
+
+  try {
+    await updateDoc(doc(db, "posts", postId), {
+      likesCount: increment(1),
+      [`reactions.${type}`]: increment(1),
+      updatedAt: serverTimestamp(),
+    });
+  } catch {
+    /* local already updated */
   }
-  await updateDoc(doc(db, "posts", postId), {
-    likesCount: increment(1),
-    [`reactions.${type}`]: increment(1),
-    updatedAt: serverTimestamp(),
-  });
 }

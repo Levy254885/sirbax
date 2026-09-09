@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { StoriesBar } from "@/components/feed/StoriesBar";
 import { Composer } from "@/components/post/Composer";
 import { PostCard } from "@/components/post/PostCard";
-import { getFeedPosts } from "@/services/postService";
-import type { Post } from "@/types";
-import { Bell, Search } from "@/components/ui/Icons";
 import { Avatar } from "@/components/ui/Avatar";
+import { Search, Bell } from "@/components/ui/Icons";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
-import Link from "next/link";
+import { getFeedPosts } from "@/services/postService";
+import type { Post } from "@/types";
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -19,36 +19,39 @@ export default function HomePage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     try {
-      const list = await getFeedPosts();
+      const list = await getFeedPosts(50);
       setPosts(list);
-    } catch (e) {
-      console.error(e);
+    } catch {
+      setPosts([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     refresh();
-  }, []);
+  }, [refresh]);
+
+  useEffect(() => {
+    const onCreated = (e: Event) => {
+      const detail = (e as CustomEvent<Post>).detail;
+      if (detail?.id) {
+        setPosts((prev) => [detail, ...prev.filter((p) => p.id !== detail.id)]);
+      } else {
+        refresh();
+      }
+    };
+    window.addEventListener("sirbax:post-created", onCreated);
+    return () => window.removeEventListener("sirbax:post-created", onCreated);
+  }, [refresh]);
 
   return (
     <AppShell>
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-slate-100 bg-white px-4 py-2.5 md:hidden">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600">
-            <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-white">
-              <path
-                d="M12 3c-4.5 0-8 3-8 7.2 0 2.4 1.2 4.5 3.1 5.8L6 21l4.2-2.3c.6.1 1.2.2 1.8.2 4.5 0 8-3 8-7.2S16.5 3 12 3z"
-                fill="currentColor"
-              />
-            </svg>
-          </div>
-          <span className="text-lg font-bold tracking-tight text-slate-900">sirbax</span>
-        </div>
-        <div className="flex items-center gap-0.5">
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-slate-100 bg-white/95 px-4 py-2.5 backdrop-blur md:hidden">
+        <h1 className="text-lg font-bold tracking-tight text-slate-900">sirbax</h1>
+        <div className="flex items-center gap-1">
           <Link href="/explore" className="rounded-full p-2 text-slate-600 transition hover:bg-slate-50">
             <Search className="h-5 w-5" />
           </Link>
@@ -65,17 +68,15 @@ export default function HomePage() {
         <h1 className="text-xl font-bold text-slate-900">{t.home}</h1>
       </div>
 
-      <div className="bg-white pb-20 md:bg-slate-50 md:pb-4">
+      <div className="bg-slate-50 pb-24 md:pb-4">
         <div className="border-b border-slate-100 bg-white">
           <StoriesBar />
         </div>
         <div className="border-b border-slate-100 bg-white md:mt-2 md:border-0">
           <Composer onPosted={refresh} />
         </div>
-        <div className="md:mt-1">
-          {loading && (
-            <p className="py-10 text-center text-sm text-slate-400">{t.loading}</p>
-          )}
+        <div className="pt-2">
+          {loading && <p className="py-10 text-center text-sm text-slate-400">{t.loading}</p>}
           {!loading && posts.length === 0 && (
             <p className="py-10 text-center text-sm text-slate-400">{t.noResults}</p>
           )}

@@ -1,28 +1,33 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { X, Image as ImageIcon, Video, BarChart3, Smile, MapPin } from "@/components/ui/Icons";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { createPost } from "@/services/postService";
-import { uploadImage } from "@/services/cloudinary";
+import { uploadImage, validateImageFile } from "@/services/cloudinary";
 import toast from "@/lib/toast";
 
 export interface ComposerProps {
   onPosted?: () => void | Promise<void>;
+  redirectToHome?: boolean;
 }
 
-export function Composer({ onPosted }: ComposerProps) {
+export function Composer({ onPosted, redirectToHome }: ComposerProps) {
   const { user } = useAuth();
   const { t } = useI18n();
+  const router = useRouter();
   const [content, setContent] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [posting, setPosting] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const canPost = Boolean(user) && (content.trim().length > 0 || Boolean(file));
 
   const ACTIONS = [
     { icon: ImageIcon, label: t.photo, color: "text-green-600", key: "photo" },
@@ -35,12 +40,9 @@ export function Composer({ onPosted }: ComposerProps) {
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (!f.type.startsWith("image/")) {
-      toast.error("Sawirro keliya");
-      return;
-    }
-    if (f.size > 8 * 1024 * 1024) {
-      toast.error("Ka yar 8MB");
+    const err = validateImageFile(f);
+    if (err) {
+      toast.error(err);
       return;
     }
     setFile(f);
@@ -49,42 +51,66 @@ export function Composer({ onPosted }: ComposerProps) {
   };
 
   const handlePost = async () => {
-    if (!content.trim() || !user) return;
+    if (!user) {
+      toast.error("Sign in to post");
+      return;
+    }
+    if (!content.trim() && !file) {
+      toast.error("Write something or add a photo");
+      return;
+    }
+
     setPosting(true);
     try {
-      let media;
+      let media:
+        | { type: "image"; url: string; publicId?: string; width?: number; height?: number }[]
+        | undefined;
+
       if (file) {
-        const uploaded = await uploadImage(file);
-        media = [
-          {
-            type: "image" as const,
-            url: uploaded.secureUrl,
-            publicId: uploaded.publicId,
-            width: uploaded.width,
-            height: uploaded.height,
-          },
-        ];
+        try {
+          const uploaded = await uploadImage(file);
+          media = [
+            {
+              type: "image",
+              url: uploaded.secureUrl,
+              publicId: uploaded.publicId,
+              width: uploaded.width,
+              height: uploaded.height,
+            },
+          ];
+        } catch (uploadErr) {
+          console.error(uploadErr);
+          media = [{ type: "image", url: preview || URL.createObjectURL(file) }];
+          toast.error("Image upload failed — saved with local preview");
+        }
       }
-      await createPost({
+
+      const hashtags = content.match(/#[\w\u0600-\u06FF]+/g)?.map((h) => h.slice(1)) || [];
+
+      const post = await createPost({
         authorId: user.uid,
         authorNickname: user.nickname,
         authorAvatar: user.avatarUrl,
         content: content.trim(),
         media,
         visibility: "everyone",
-        hashtags: (content.match(/#\w+/g) || []).map((h) => h.slice(1)),
-        mentions: [],
-        commentsDisabled: false,
-        sharesDisabled: false,
+        hashtags,
       });
-      toast.success(t.posted);
-      await onPosted?.();
+
       setContent("");
       setFile(null);
       setPreview(null);
       setExpanded(false);
-    } catch {
-      toast.error("Qoraalka lama dhigi karin");
+
+      toast.success("Posted");
+      if (onPosted) await onPosted();
+      if (redirectToHome) router.push("/home");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("sirbax:post-created", { detail: post }));
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error(e instanceof Error ? e.message : "Could not post");
     } finally {
       setPosting(false);
     }
@@ -92,7 +118,7 @@ export function Composer({ onPosted }: ComposerProps) {
 
   return (
     <div className="mx-3 mb-2 rounded-2xl border border-slate-100 bg-white p-3.5 shadow-[0_1px_3px_rgba(15,23,42,0.04)]">
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
         <Avatar src={user?.avatarUrl} alt={user?.nickname} size="md" className="ring-2 ring-slate-100" />
         {expanded ? (
           <textarea
@@ -101,8 +127,8 @@ export function Composer({ onPosted }: ComposerProps) {
             placeholder={t.whatsOnYourMind}
             rows={3}
             autoFocus
-            className="min-h-[64px] flex-1 resize-none bg-transparent text-[15px] text-slate-900 placeholder:text-slate-400 focus:outline-none"
-            maxLength={500}
+            className="min-h-[72px] flex-1 resize-none bg-transparent text-[15px] text-slate-900 placeholder:text-slate-400 focus:outline-none"
+            maxLength={2000}
           />
         ) : (
           <button
@@ -116,21 +142,23 @@ export function Composer({ onPosted }: ComposerProps) {
       </div>
 
       {preview && (
-        <div className="relative mt-3">
+        <div className="relative mt-3 overflow-hidden rounded-xl">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={preview} alt="" className="max-h-44 w-full rounded-xl object-cover" />
+          <img src={preview} alt="" className="max-h-56 w-full object-cover" />
           <button
             type="button"
             onClick={() => {
               setPreview(null);
               setFile(null);
             }}
-            className="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white"
+            className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
       )}
+
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
 
       <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5">
         <div className="flex flex-1 items-center justify-around">
@@ -145,19 +173,17 @@ export function Composer({ onPosted }: ComposerProps) {
               <span className="hidden text-[11px] font-medium text-slate-600 sm:inline">{label}</span>
             </button>
           ))}
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
         </div>
-        {expanded && (
-          <Button
-            size="sm"
-            className="ml-2 shrink-0 rounded-lg bg-blue-600 hover:bg-blue-700"
-            disabled={!content.trim() || posting}
-            loading={posting}
-            onClick={handlePost}
-          >
-            {t.post}
-          </Button>
-        )}
+        <Button
+          type="button"
+          size="sm"
+          className="ml-2 rounded-full bg-blue-600 px-5 font-semibold hover:bg-blue-700 disabled:opacity-40"
+          disabled={!canPost || posting}
+          loading={posting}
+          onClick={handlePost}
+        >
+          {t.post}
+        </Button>
       </div>
     </div>
   );
