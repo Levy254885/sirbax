@@ -1,42 +1,57 @@
 "use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { Avatar } from "@/components/ui/Avatar";
-import { generateDefaultAvatar } from "@/utils/nickname";
-import { Search } from "@/components/ui/Icons";
-import Link from "next/link";
-
-const conversations = [
-  { id: "c1", user: "BlueMoon_204", last: "Hey! How are you doing?", time: "2m", unread: 1 },
-  { id: "c2", user: "StormRider_671", last: "That is awesome!", time: "15m", unread: 0 },
-  { id: "c3", user: "NovaSky_319", last: "Sent an image", time: "1h", unread: 2 },
-  { id: "c4", user: "LeafyMind_482", last: "Let us catch up soon!", time: "2h", unread: 0 },
-];
+import { useAuth } from "@/context/AuthContext";
+import { useI18n } from "@/context/I18nContext";
+import { listConversations, type ConversationMeta } from "@/services/socialService";
+import { formatRelativeTime } from "@/lib/utils";
 
 export default function MessagesPage() {
+  const { user } = useAuth();
+  const { t } = useI18n();
+  const [convos, setConvos] = useState<ConversationMeta[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    listConversations(user.uid).then(setConvos);
+  }, [user]);
+
   return (
     <AppShell showRight={false}>
-      <div className="sticky top-0 z-40 border-b border-border bg-card px-4 py-3">
-        <h1 className="text-xl font-bold">Messages</h1>
-        <div className="relative mt-3">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input type="search" placeholder="Search conversations..." className="h-10 w-full rounded-full border border-border bg-muted pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-        </div>
+      <div className="border-b border-slate-100 bg-white px-4 py-3">
+        <h1 className="text-xl font-bold text-slate-900">{t.messages}</h1>
       </div>
-      {conversations.map((c) => (
-        <Link key={c.id} href={`/messages/${c.id}`} className="flex w-full items-center gap-3 border-b border-border px-4 py-3 hover:bg-muted/50">
-          <Avatar src={generateDefaultAvatar(c.user)} alt={c.user} size="lg" />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between">
-              <p className="truncate text-sm font-semibold">{c.user}</p>
-              <span className="text-xs text-muted-foreground">{c.time}</span>
-            </div>
-            <p className="truncate text-sm text-muted-foreground">{c.last}</p>
-          </div>
-          {c.unread > 0 && (
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">{c.unread}</span>
-          )}
-        </Link>
-      ))}
+      <div className="bg-white">
+        {convos.length === 0 && (
+          <p className="px-4 py-16 text-center text-sm text-slate-400">
+            No messages yet. Open a profile and tap Message.
+          </p>
+        )}
+        {convos.map((c) => {
+          const otherId = c.participantIds.find((id) => id !== user?.uid) || c.participantIds[0];
+          const name = c.participantNicknames[otherId] || "User";
+          const avatar = c.participantAvatars[otherId];
+          return (
+            <Link
+              key={c.id}
+              href={`/messages/${c.id}?to=${otherId}&name=${encodeURIComponent(name)}`}
+              className="flex items-center gap-3 border-b border-slate-50 px-4 py-3.5 hover:bg-slate-50"
+            >
+              <Avatar src={avatar} alt={name} size="md" className="ring-2 ring-slate-100" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-sm font-semibold text-slate-900">{name}</p>
+                  <span className="shrink-0 text-[11px] text-slate-400">{formatRelativeTime(c.updatedAt)}</span>
+                </div>
+                <p className="truncate text-sm text-slate-500">{c.lastMessage}</p>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
     </AppShell>
   );
 }

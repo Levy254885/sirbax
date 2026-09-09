@@ -1,60 +1,69 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
+import { PostCard } from "@/components/post/PostCard";
 import { Search } from "@/components/ui/Icons";
-
-const categories = ["All", "Architecture", "Travel", "Nature", "Food", "Art", "Tech"];
-
-const grid = [
-  "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=400&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1511811037596-ed2c6c5b5b6a?w=400&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=400&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=400&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=400&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1493246507139-91e8fad9978e?w=400&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=400&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=400&h=400&fit=crop",
-];
+import { useI18n } from "@/context/I18nContext";
+import { getFeedPosts } from "@/services/postService";
+import type { Post } from "@/types";
 
 export default function ExplorePage() {
+  const { t } = useI18n();
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [q, setQ] = useState("");
+  const [tab, setTab] = useState(0);
+
+  useEffect(() => {
+    getFeedPosts(50).then(setPosts);
+  }, []);
+
+  const filtered = q.trim()
+    ? posts.filter(
+        (p) =>
+          p.content.toLowerCase().includes(q.toLowerCase()) ||
+          p.authorNickname.toLowerCase().includes(q.toLowerCase()) ||
+          p.hashtags.some((h) => h.toLowerCase().includes(q.toLowerCase()))
+      )
+    : posts;
+
+  const tabs = [t.forYou, t.trending, t.people];
+
   return (
     <AppShell>
-      <div className="sticky top-0 z-40 border-b border-border bg-card/95 px-4 py-3 backdrop-blur-md">
+      <div className="sticky top-0 z-40 border-b border-slate-100 bg-white px-4 py-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             type="search"
-            placeholder="Search"
-            className="h-10 w-full rounded-xl border-0 bg-muted pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={t.searchPlaceholder}
+            className="h-11 w-full rounded-xl border-0 bg-slate-100 pl-10 pr-4 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
           />
         </div>
         <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto">
-          {categories.map((c, i) => (
+          {tabs.map((label, i) => (
             <button
-              key={c}
-              className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                i === 0
-                  ? "bg-foreground text-background"
-                  : "bg-muted text-foreground hover:bg-secondary"
+              key={label}
+              type="button"
+              onClick={() => setTab(i)}
+              className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                tab === i ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"
               }`}
             >
-              {c}
+              {label}
             </button>
           ))}
         </div>
       </div>
-
-      <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
-        {grid.map((src, i) => (
-          <button key={i} className="relative aspect-square overflow-hidden bg-muted">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={src} alt="" className="h-full w-full object-cover transition-transform hover:scale-105" />
-          </button>
+      <div className="bg-white pb-20">
+        {filtered.map((p) => (
+          <PostCard key={p.id} post={p} />
         ))}
+        {filtered.length === 0 && (
+          <p className="py-16 text-center text-sm text-slate-400">{t.noResults}</p>
+        )}
       </div>
     </AppShell>
   );
