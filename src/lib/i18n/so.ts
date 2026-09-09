@@ -1,8 +1,11 @@
 /** Somali UI strings — default language for Sirbax */
 export const so = {
+  // Brand
   appName: "sirbax",
   tagline1: "Si xor ah u wadaag.",
   tagline2: "Si qarsoodi ah isku xidh.",
+
+  // Auth
   welcomeBack: "Soo dhawoow",
   signInContinue: "Gali si aad u sii waddo sirbax",
   emailOrUsername: "Iimayl ama magaca isticmaalaha",
@@ -21,6 +24,8 @@ export const so = {
   haveAccount: "Akoon ma leedahay?",
   getStarted: "Bilow",
   logInBtn: "Gal",
+
+  // Onboarding
   yourAnonymousIdentity: "Aqoonsigaaga qarsoodiga ah",
   knownByNickname: "Waxaa lagugu aqoonsan doonaa naanaysta aan tooska ahayn",
   canChangeLater: "(waad beddeli kartaa dambe)",
@@ -32,6 +37,8 @@ export const so = {
   realConversations: "Wadahadallo dhab ah.",
   anonymousIdentities: "Aqoonsiyo qarsoodi ah.",
   skip: "Ka bood",
+
+  // Nav
   home: "Hoyga",
   explore: "Sahamin",
   messages: "Fariimaha",
@@ -44,6 +51,8 @@ export const so = {
   events: "Dhacdooyinka",
   marketplace: "Suuqa",
   memories: "Xusuusta",
+
+  // Feed
   whatsOnYourMind: "Maxaa maskaxdaada ku jira?",
   photo: "Sawir",
   video: "Fiidiyo",
@@ -60,6 +69,8 @@ export const so = {
   reactions: "dareenno",
   createStory: "Abuur sheeko",
   yourStory: "Sheekadaada",
+
+  // Profile
   posts: "Qoraalada",
   replies: "Jawaabaha",
   media: "Warbaahinta",
@@ -71,6 +82,8 @@ export const so = {
   editProfile: "Wax ka beddel profile",
   shareProfile: "La wadaag profile",
   message: "Fariin",
+
+  // Settings
   account: "Akoonka",
   privacy: "Asturnaanta",
   appearance: "Muuqaalka",
@@ -87,9 +100,13 @@ export const so = {
   whiteBackground: "Asal cad",
   darkElegant: "Muuqaal madow oo qurux badan",
   matchDevice: "La jaanqaad aaladda",
+
+  // Messages
   searchConversations: "Raadi wadahadallo...",
   writeComment: "Qor faallo...",
   reply: "Jawaab",
+
+  // Explore
   searchPlaceholder: "Raadi isticmaalayaal, qoraallo, hashtags...",
   forYou: "Adiga kuu talogalay",
   trending: "Kuwa ugu caansan",
@@ -99,11 +116,15 @@ export const so = {
   suggestedCommunities: "Bulshooyinka la soo jeediyay",
   seeAll: "Dhammaan arag",
   join: "Ku biir",
+
+  // Notifications
   all: "Dhammaan",
   likedYourPost: "ayaa jecelay qoraalkaaga",
   commentedOnYourPost: "ayaa faallo ka bixiyay qoraalkaaga",
   startedFollowingYou: "ayaa bilaabay inuu ku raaco",
   mentionedYou: "ayaa kugu soo xusay",
+
+  // Common
   search: "Raadi",
   back: "Dib u noqo",
   cancel: "Jooji",
@@ -121,7 +142,8 @@ export const so = {
   openEmailApp: "Fur app-ka iimaylka",
   resendEmail: "Dib u dir iimayl",
   backToLogin: "Ku noqo gelitaanka",
-} as const;
+};
 
 export type TranslationKey = keyof typeof so;
-export type Translations = typeof so;
+/** All UI strings are plain strings so SO/EN can share the same shape */
+export type Translations = { [K in TranslationKey]: string };
