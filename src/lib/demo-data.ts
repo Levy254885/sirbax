@@ -5,8 +5,8 @@ export const DEMO_STORIES: Story[] = [
   {
     id: "s1",
     authorId: "u1",
-    authorNickname: "QuietFox",
-    authorAvatar: generateDefaultAvatar("QuietFox"),
+    authorNickname: "QuietFox_421",
+    authorAvatar: generateDefaultAvatar("QuietFox_421"),
     type: "image",
     mediaUrl: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&q=80",
     viewersCount: 42,
@@ -17,8 +17,8 @@ export const DEMO_STORIES: Story[] = [
   {
     id: "s2",
     authorId: "u2",
-    authorNickname: "BlueMoon",
-    authorAvatar: generateDefaultAvatar("BlueMoon"),
+    authorNickname: "BlueMoon_204",
+    authorAvatar: generateDefaultAvatar("BlueMoon_204"),
     type: "image",
     mediaUrl: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=400&q=80",
     viewersCount: 18,
@@ -29,8 +29,8 @@ export const DEMO_STORIES: Story[] = [
   {
     id: "s3",
     authorId: "u3",
-    authorNickname: "StormRider",
-    authorAvatar: generateDefaultAvatar("StormRider"),
+    authorNickname: "StormRider_731",
+    authorAvatar: generateDefaultAvatar("StormRider_731"),
     type: "image",
     mediaUrl: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&q=80",
     viewersCount: 67,
@@ -40,6 +40,7 @@ export const DEMO_STORIES: Story[] = [
   },
 ];
 
+/** Single sample post with image for empty feeds / demo */
 export const DEMO_POSTS: Post[] = [
   {
     id: "p1",
@@ -47,13 +48,13 @@ export const DEMO_POSTS: Post[] = [
     authorNickname: "SilentWolf_732",
     authorAvatar: generateDefaultAvatar("SilentWolf_732"),
     content:
-      "Sometimes the smallest changes bring the biggest results. Keep going. 💪",
+      "Sometimes the smallest changes bring the biggest results. Keep going.",
     media: [
       {
         type: "image",
-        url: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80",
-        width: 800,
-        height: 500,
+        url: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&q=80",
+        width: 900,
+        height: 600,
       },
     ],
     visibility: "everyone",
@@ -62,59 +63,11 @@ export const DEMO_POSTS: Post[] = [
     isEdited: false,
     commentsDisabled: false,
     sharesDisabled: false,
-    likesCount: 324,
-    commentsCount: 48,
-    sharesCount: 12,
-    reactions: { love: 180, like: 100, wow: 44 },
+    likesCount: 24,
+    commentsCount: 3,
+    sharesCount: 1,
+    reactions: { love: 12, like: 10, wow: 2 },
     createdAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: "p2",
-    authorId: "u4",
-    authorNickname: "OceanVibe_225",
-    authorAvatar: generateDefaultAvatar("OceanVibe_225"),
-    content:
-      "Life is better when you're surrounded by good people. 🌊\n\n#Travel #Adventure",
-    media: [
-      {
-        type: "image",
-        url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80",
-        width: 800,
-        height: 600,
-      },
-    ],
-    visibility: "everyone",
-    hashtags: ["Travel", "Adventure"],
-    mentions: [],
-    isEdited: false,
-    commentsDisabled: false,
-    sharesDisabled: false,
-    likesCount: 891,
-    commentsCount: 56,
-    sharesCount: 23,
-    reactions: { love: 500, like: 300, haha: 91 },
-    createdAt: new Date(Date.now() - 5 * 3600 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 5 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: "p3",
-    authorId: "u5",
-    authorNickname: "NovaSky_319",
-    authorAvatar: generateDefaultAvatar("NovaSky_319"),
-    content:
-      "Anyone else working on side projects at 2am? Asking for a friend 👀\n\n#Coding #NightOwl",
-    visibility: "everyone",
-    hashtags: ["Coding", "NightOwl"],
-    mentions: [],
-    isEdited: false,
-    commentsDisabled: false,
-    sharesDisabled: false,
-    likesCount: 156,
-    commentsCount: 34,
-    sharesCount: 4,
-    reactions: { haha: 80, like: 60, love: 16 },
-    createdAt: new Date(Date.now() - 8 * 3600 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 8 * 3600 * 1000).toISOString(),
   },
 ];
