@@ -136,6 +136,29 @@ const en: Translations = {
   openEmailApp: "Open Email App",
   resendEmail: "Resend email",
   backToLogin: "Back to login",
+  sell: "Sell",
+  buyNow: "Buy now",
+  myOrders: "My orders",
+  myListings: "My listings",
+  orderStatus: "Order status",
+  payNow: "Pay now",
+  markShipped: "Mark shipped",
+  confirmReceived: "Confirm received",
+  escrowHeld: "Funds held by sirbax",
+  fundsReleased: "Funds released to seller",
+  waitingPayment: "Waiting for payment",
+  waitingShipment: "Waiting for shipment",
+  waitingDelivery: "Waiting for delivery confirmation",
+  completed: "Completed",
+  cancelled: "Cancelled",
+  listingPrice: "Price",
+  listingTitle: "Title",
+  listingDesc: "Description",
+  postListing: "Post listing",
+  contactSeller: "Contact seller",
+  platformFee: "Platform fee",
+  totalDue: "Total due",
+  orderPlaced: "Order placed",
 };
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
@@ -143,8 +166,10 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const stored = localStorage.getItem("sirbax-lang") as Lang | null;
-    if (stored === "en" || stored === "so") setLangState(stored);
-    else {
+    if (stored === "en" || stored === "so") {
+      setLangState(stored);
+      if (typeof document !== "undefined") document.documentElement.lang = stored === "so" ? "so" : "en";
+    } else {
       localStorage.setItem("sirbax-lang", "so");
       setLangState("so");
     }
@@ -153,6 +178,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const setLang = useCallback((l: Lang) => {
     setLangState(l);
     localStorage.setItem("sirbax-lang", l);
+    if (typeof document !== "undefined") document.documentElement.lang = l === "so" ? "so" : "en";
   }, []);
 
   const t = useMemo(() => (lang === "en" ? en : so), [lang]);
