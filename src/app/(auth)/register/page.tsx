@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import toast from "@/lib/toast";
+import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -41,7 +42,10 @@ export default function RegisterPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-white">
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-12">
+      <div className="flex justify-end px-4 pt-4">
+        <LanguageSwitcher />
+      </div>
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-8">
         <div className="mb-10 flex flex-col items-center text-center">
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25">
             <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7 text-white">
@@ -72,8 +76,12 @@ export default function RegisterPage() {
 
         <div className="grid grid-cols-2 gap-3">
           <button type="button" onClick={async () => { setLoading(true); try { await loginWithGoogle(); router.push("/home"); } finally { setLoading(false); } }}
-            className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50">Google</button>
-          <button type="button" disabled className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 opacity-60">Apple</button>
+            className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50">
+            Google
+          </button>
+          <button type="button" disabled className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-700 opacity-60">
+            Apple
+          </button>
         </div>
 
         <p className="mt-8 text-center text-sm text-slate-500">
