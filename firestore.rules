@@ -12,25 +12,27 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isOwner(userId);
       allow update: if isOwner(userId);
-      allow delete: if false;
+      allow delete: if isOwner(userId);
     }
 
     match /posts/{postId} {
       allow read: if true;
       allow create: if signedIn()
-        && request.resource.data.authorId == request.auth.uid
-        && request.resource.data.keys().hasAll(['authorId', 'content', 'createdAt']);
+        && request.resource.data.authorId == request.auth.uid;
       allow update: if signedIn() && (
         resource.data.authorId == request.auth.uid
         || request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['likesCount', 'commentsCount', 'sharesCount', 'reactions', 'updatedAt'])
+            .hasOnly(['likesCount', 'commentsCount', 'sharesCount', 'reactions', 'updatedAt', 'hiddenBy'])
       );
       allow delete: if signedIn() && resource.data.authorId == request.auth.uid;
 
       match /comments/{commentId} {
         allow read: if true;
         allow create: if signedIn();
-        allow update, delete: if signedIn() && resource.data.authorId == request.auth.uid;
+        allow update, delete: if signedIn() && (
+          resource.data.authorId == request.auth.uid
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount'])
+        );
       }
     }
 
@@ -40,15 +42,57 @@ service cloud.firestore {
       allow update, delete: if signedIn() && resource.data.authorId == request.auth.uid;
     }
 
-    match /notifications/{notifId} {
-      allow read: if signedIn() && resource.data.recipientId == request.auth.uid;
+    match /follows/{followId} {
+      allow read: if true;
       allow create: if signedIn();
-      allow update: if signedIn() && resource.data.recipientId == request.auth.uid;
-      allow delete: if signedIn() && resource.data.recipientId == request.auth.uid;
+      allow delete: if signedIn();
     }
 
-    match /{document=**} {
-      allow read, write: if false;
+    match /conversations/{cid} {
+      allow read: if signedIn() && request.auth.uid in resource.data.participantIds;
+      allow create: if signedIn();
+      allow update: if signedIn() && request.auth.uid in resource.data.participantIds;
+
+      match /messages/{mid} {
+        allow read: if signedIn();
+        allow create: if signedIn();
+      }
+    }
+
+    match /notifications/{nid} {
+      allow read: if signedIn() && resource.data.recipientId == request.auth.uid;
+      allow create: if signedIn();
+      allow update, delete: if signedIn() && resource.data.recipientId == request.auth.uid;
+    }
+
+    match /groups/{gid} {
+      allow read: if true;
+      allow create: if signedIn();
+      allow update: if signedIn();
+      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /events/{eid} {
+      allow read: if true;
+      allow create: if signedIn();
+      allow update: if signedIn();
+      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /listings/{lid} {
+      allow read: if true;
+      allow create: if signedIn();
+      allow update, delete: if signedIn() && resource.data.sellerId == request.auth.uid;
+    }
+
+    match /blocks/{bid} {
+      allow read: if signedIn();
+      allow create, delete: if signedIn();
+    }
+
+    match /reports/{rid} {
+      allow create: if signedIn();
+      allow read: if false;
     }
   }
 }
