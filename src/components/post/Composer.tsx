@@ -8,13 +8,15 @@ import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { createPost } from "@/services/postService";
-import { uploadImage, validateImageFile } from "@/services/cloudinary";
+import { uploadImages, validateImageFile } from "@/services/cloudinary";
 import toast from "@/lib/toast";
 
 export interface ComposerProps {
   onPosted?: () => void | Promise<void>;
   redirectToHome?: boolean;
 }
+
+const MAX_IMAGES = 4;
 
 export function Composer({ onPosted, redirectToHome }: ComposerProps) {
   const { user } = useAuth();
@@ -23,11 +25,11 @@ export function Composer({ onPosted, redirectToHome }: ComposerProps) {
   const [content, setContent] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [posting, setPosting] = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const canPost = Boolean(user) && (content.trim().length > 0 || Boolean(file));
+  const canPost = Boolean(user) && (content.trim().length > 0 || files.length > 0);
 
   const ACTIONS = [
     { icon: ImageIcon, label: t.photo, color: "text-green-600", key: "photo" },
@@ -37,17 +39,28 @@ export function Composer({ onPosted, redirectToHome }: ComposerProps) {
     { icon: MapPin, label: t.location, color: "text-blue-600", key: "location" },
   ] as const;
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    const err = validateImageFile(f);
-    if (err) {
-      toast.error(err);
-      return;
+  const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const list = Array.from(e.target.files || []);
+    if (!list.length) return;
+    const accepted: File[] = [];
+    for (const f of list) {
+      const err = validateImageFile(f);
+      if (err) {
+        toast.error(err);
+        continue;
+      }
+      accepted.push(f);
     }
-    setFile(f);
-    setPreview(URL.createObjectURL(f));
+    const next = [...files, ...accepted].slice(0, MAX_IMAGES);
+    setFiles(next);
+    setPreviews(next.map((f) => URL.createObjectURL(f)));
     setExpanded(true);
+    e.target.value = "";
+  };
+
+  const removeAt = (i: number) => {
+    setFiles((prev) => prev.filter((_, idx) => idx !== i));
+    setPreviews((prev) => prev.filter((_, idx) => idx !== i));
   };
 
   const handlePost = async () => {
@@ -55,7 +68,7 @@ export function Composer({ onPosted, redirectToHome }: ComposerProps) {
       toast.error("Sign in to post");
       return;
     }
-    if (!content.trim() && !file) {
+    if (!content.trim() && files.length === 0) {
       toast.error("Write something or add a photo");
       return;
     }
@@ -66,23 +79,16 @@ export function Composer({ onPosted, redirectToHome }: ComposerProps) {
         | { type: "image"; url: string; publicId?: string; width?: number; height?: number }[]
         | undefined;
 
-      if (file) {
-        try {
-          const uploaded = await uploadImage(file);
-          media = [
-            {
-              type: "image",
-              url: uploaded.secureUrl,
-              publicId: uploaded.publicId,
-              width: uploaded.width,
-              height: uploaded.height,
-            },
-          ];
-        } catch (uploadErr) {
-          console.error(uploadErr);
-          media = [{ type: "image", url: preview || URL.createObjectURL(file) }];
-          toast.error("Image upload failed — saved with local preview");
-        }
+      if (files.length) {
+        // Must succeed on Cloudinary — never blob URLs (not visible to others)
+        const uploaded = await uploadImages(files);
+        media = uploaded.map((u) => ({
+          type: "image" as const,
+          url: u.secureUrl,
+          publicId: u.publicId,
+          width: u.width,
+          height: u.height,
+        }));
       }
 
       const hashtags = content.match(/#[\w\u0600-\u06FF]+/g)?.map((h) => h.slice(1)) || [];
@@ -98,8 +104,8 @@ export function Composer({ onPosted, redirectToHome }: ComposerProps) {
       });
 
       setContent("");
-      setFile(null);
-      setPreview(null);
+      setFiles([]);
+      setPreviews([]);
       setExpanded(false);
 
       toast.success("Posted");
@@ -110,7 +116,9 @@ export function Composer({ onPosted, redirectToHome }: ComposerProps) {
       }
     } catch (e) {
       console.error(e);
-      toast.error(e instanceof Error ? e.message : "Could not post");
+      toast.error(
+        e instanceof Error ? e.message : "Could not post — check Cloudinary upload"
+      );
     } finally {
       setPosting(false);
     }
@@ -141,24 +149,25 @@ export function Composer({ onPosted, redirectToHome }: ComposerProps) {
         )}
       </div>
 
-      {preview && (
-        <div className="relative mt-3 overflow-hidden rounded-xl">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={preview} alt="" className="max-h-56 w-full object-cover" />
-          <button
-            type="button"
-            onClick={() => {
-              setPreview(null);
-              setFile(null);
-            }}
-            className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white"
-          >
-            <X className="h-4 w-4" />
-          </button>
+      {previews.length > 0 && (
+        <div className={`mt-3 grid gap-2 ${previews.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+          {previews.map((src, i) => (
+            <div key={i} className="relative overflow-hidden rounded-xl">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt="" className="max-h-48 w-full object-cover" />
+              <button
+                type="button"
+                onClick={() => removeAt(i)}
+                className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
-      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+      <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />
 
       <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5">
         <div className="flex flex-1 items-center justify-around">
@@ -185,6 +194,11 @@ export function Composer({ onPosted, redirectToHome }: ComposerProps) {
           {t.post}
         </Button>
       </div>
+      {files.length > 0 && (
+        <p className="mt-1 text-center text-[11px] text-slate-400">
+          {files.length}/{MAX_IMAGES} images · uploaded to Cloudinary for everyone
+        </p>
+      )}
     </div>
   );
 }
