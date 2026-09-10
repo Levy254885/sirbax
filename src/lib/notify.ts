@@ -2,9 +2,11 @@ type Listener = (n: { title: string; body: string; href?: string }) => void;
 
 const listeners = new Set<Listener>();
 
-export function onNotify(fn: Listener) {
+export function onNotify(fn: Listener): () => void {
   listeners.add(fn);
-  return () => listeners.delete(fn);
+  return () => {
+    listeners.delete(fn);
+  };
 }
 
 export function pushNotify(n: { title: string; body: string; href?: string }) {
