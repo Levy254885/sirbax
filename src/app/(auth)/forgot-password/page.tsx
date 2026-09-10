@@ -2,71 +2,63 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Logo } from "@/components/common/Logo";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { LanguageSwitcher } from "@/components/common/LanguageSwitcher";
+import { useI18n } from "@/context/I18nContext";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { auth, isFirebaseConfigured } from "@/firebase/config";
 import toast from "@/lib/toast";
 
 export default function ForgotPasswordPage() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setSent(true);
-    setLoading(false);
-    toast.success("Reset link sent (demo)");
+    try {
+      if (isFirebaseConfigured) {
+        await sendPasswordResetEmail(auth, email);
+      } else {
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      setSent(true);
+      toast.success("Reset link sent");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send reset email");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
-      <div className="w-full max-w-md space-y-8">
-        <div className="flex flex-col items-center text-center">
-          <Logo size="lg" />
-          <h1 className="mt-6 text-2xl font-bold tracking-tight">
-            Reset your password
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Enter your email and we&apos;ll send you a reset link.
-          </p>
-        </div>
-
+    <div className="flex min-h-screen flex-col bg-white">
+      <div className="flex justify-end px-4 pt-4">
+        <LanguageSwitcher />
+      </div>
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-8">
         {sent ? (
-          <div className="rounded-2xl border border-border bg-card p-6 text-center">
-            <p className="text-sm">
-              If an account exists for <strong>{email}</strong>, you&apos;ll receive a reset link shortly.
-            </p>
-            <Link
-              href="/login"
-              className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
-            >
-              Back to Log In
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-slate-900">{t.checkEmail}</h1>
+            <p className="mt-2 text-sm text-slate-500">{email}</p>
+            <Link href="/login" className="mt-8 block">
+              <Button className="w-full rounded-xl bg-blue-600">{t.backToLogin}</Button>
             </Link>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              type="email"
-              placeholder="Email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-            <Button type="submit" className="w-full" size="lg" loading={loading}>
-              Send reset link
-            </Button>
-          </form>
+          <>
+            <h1 className="text-2xl font-bold text-slate-900">{t.resetPassword}</h1>
+            <p className="mt-2 text-sm text-slate-500">Enter your email to receive a reset link</p>
+            <form onSubmit={handleSubmit} className="mt-6 space-y-3">
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder={t.emailAddress} className="h-12 w-full rounded-xl border border-slate-200 px-4 text-sm focus:border-blue-500 focus:outline-none" />
+              <Button type="submit" loading={loading} className="h-12 w-full rounded-xl bg-blue-600">{t.sendResetLink}</Button>
+            </form>
+            <Link href="/login" className="mt-6 text-center text-sm text-blue-600">{t.backToLogin}</Link>
+          </>
         )}
-
-        <p className="text-center text-sm text-muted-foreground">
-          <Link href="/login" className="font-medium text-primary hover:underline">
-            Back to Log In
-          </Link>
-        </p>
       </div>
     </div>
   );
