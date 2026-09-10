@@ -10,6 +10,7 @@ import { db, isFirebaseConfigured } from "@/firebase/config";
 import type { Post } from "@/types";
 import { DEMO_POSTS, DEMO_STORIES } from "@/lib/demo-data";
 import { generateDefaultAvatar } from "@/utils/nickname";
+import { createNotification } from "@/services/platformService";
 
 export { rankPosts } from "@/services/feedRank";
 
@@ -83,20 +84,44 @@ export function getLocalFollowCounts(uid: string): { followers: number; followin
 }
 
 export interface CommentItem {
-  id: string; postId: string; authorId: string; authorNickname: string; authorAvatar: string;
-  text: string; createdAt: string; likesCount: number;
+  id: string;
+  postId?: string;
+  authorId: string;
+  authorNickname: string;
+  authorAvatar?: string;
+  content: string;
+  text?: string;
+  createdAt: string;
+  likesCount?: number;
+  parentId?: string | null;
+  replyCount?: number;
+  isEdited?: boolean;
 }
 
 export async function getComments(postId: string): Promise<CommentItem[]> {
-  if (!isFirebaseConfigured) return lsGet<CommentItem[]>(`sirbax-comments-${postId}`, []);
+  if (!isFirebaseConfigured) {
+    return lsGet<CommentItem[]>(`sirbax-comments-${postId}`, []).map((c) => ({
+      ...c,
+      content: c.content || c.text || "",
+    }));
+  }
   try {
     const snap = await getDocs(query(collection(db, "posts", postId, "comments"), orderBy("createdAt", "desc"), limit(100)));
     return snap.docs.map((d) => {
       const data = d.data();
+      const body = data.content || data.text || "";
       return {
-        id: d.id, postId, authorId: data.authorId || "", authorNickname: data.authorNickname || "",
+        id: d.id,
+        postId,
+        authorId: data.authorId || "",
+        authorNickname: data.authorNickname || "",
         authorAvatar: data.authorAvatar || generateDefaultAvatar(data.authorNickname || "u"),
-        text: data.text || "", createdAt: toIso(data.createdAt), likesCount: data.likesCount || 0,
+        content: body,
+        text: body,
+        createdAt: toIso(data.createdAt),
+        likesCount: data.likesCount || 0,
+        parentId: data.parentId || null,
+        isEdited: Boolean(data.isEdited),
       };
     });
   } catch {
@@ -106,13 +131,20 @@ export async function getComments(postId: string): Promise<CommentItem[]> {
 
 export async function addComment(
   postId: string,
-  author: { uid: string; nickname: string; avatarUrl?: string },
-  text: string
+  input: { authorId: string; authorNickname: string; authorAvatar?: string; content: string; parentId?: string }
 ): Promise<CommentItem> {
+  const body = input.content.trim();
   const item: CommentItem = {
-    id: `c-${Date.now()}`, postId, authorId: author.uid, authorNickname: author.nickname,
-    authorAvatar: author.avatarUrl || generateDefaultAvatar(author.nickname),
-    text: text.trim(), createdAt: new Date().toISOString(), likesCount: 0,
+    id: `c-${Date.now()}`,
+    postId,
+    authorId: input.authorId,
+    authorNickname: input.authorNickname,
+    authorAvatar: input.authorAvatar || generateDefaultAvatar(input.authorNickname),
+    content: body,
+    text: body,
+    createdAt: new Date().toISOString(),
+    likesCount: 0,
+    parentId: input.parentId || null,
   };
   if (!isFirebaseConfigured) {
     lsSet(`sirbax-comments-${postId}`, [item, ...lsGet<CommentItem[]>(`sirbax-comments-${postId}`, [])]);
@@ -123,8 +155,14 @@ export async function addComment(
     return item;
   }
   const ref = await addDoc(collection(db, "posts", postId, "comments"), {
-    authorId: author.uid, authorNickname: author.nickname, authorAvatar: author.avatarUrl || "",
-    text: text.trim(), likesCount: 0, createdAt: serverTimestamp(),
+    authorId: input.authorId,
+    authorNickname: input.authorNickname,
+    authorAvatar: input.authorAvatar || "",
+    content: body,
+    text: body,
+    likesCount: 0,
+    parentId: input.parentId || null,
+    createdAt: serverTimestamp(),
   });
   await updateDoc(doc(db, "posts", postId), { commentsCount: increment(1), updatedAt: serverTimestamp() }).catch(() => {});
   return { ...item, id: ref.id };
@@ -262,4 +300,206 @@ export async function listConversations(uid: string): Promise<ConversationMeta[]
 export async function getPostsByAuthor(authorId: string): Promise<Post[]> {
   const { getFeedPosts } = await import("./postService");
   return (await getFeedPosts(100)).filter((p) => p.authorId === authorId);
+}
+
+export async function likeComment(postId: string, commentId: string): Promise<void> {
+  if (!isFirebaseConfigured) {
+    lsSet(
+      `sirbax-comments-${postId}`,
+      lsGet<CommentItem[]>(`sirbax-comments-${postId}`, []).map((c) =>
+        c.id === commentId ? { ...c, likesCount: (c.likesCount || 0) + 1 } : c
+      )
+    );
+    return;
+  }
+  try {
+    await updateDoc(doc(db, "posts", postId, "comments", commentId), { likesCount: increment(1) });
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+export async function listFollowingIds(followerId: string): Promise<string[]> {
+  if (!isFirebaseConfigured) return lsGet<string[]>(`sirbax-following-${followerId}`, []);
+  try {
+    const snap = await getDocs(query(collection(db, "follows"), where("followerId", "==", followerId), limit(200)));
+    return snap.docs.map((d) => d.data().followingId as string).filter(Boolean);
+  } catch {
+    return lsGet<string[]>(`sirbax-following-${followerId}`, []);
+  }
+}
+
+export async function listFollowerIds(targetId: string): Promise<string[]> {
+  if (!isFirebaseConfigured) {
+    const counts = lsGet<Record<string, { followers: number; following: number }>>("sirbax-follow-counts", {});
+    return [];
+  }
+  try {
+    const snap = await getDocs(query(collection(db, "follows"), where("followingId", "==", targetId), limit(200)));
+    return snap.docs.map((d) => d.data().followerId as string).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+export async function notifyFollow(
+  actor: { uid: string; nickname: string; avatarUrl?: string },
+  targetId: string
+) {
+  await createNotification({
+    recipientId: targetId,
+    actorId: actor.uid,
+    actorNickname: actor.nickname,
+    actorAvatar: actor.avatarUrl,
+    type: "follow",
+    text: "started following you",
+  });
+}
+
+export async function deleteMessage(cid: string, messageId: string, senderId: string): Promise<void> {
+  if (!isFirebaseConfigured) {
+    const list = lsGet<ChatMessage[]>(`sirbax-msgs-${cid}`, []).filter(
+      (m) => !(m.id === messageId && m.senderId === senderId)
+    );
+    lsSet(`sirbax-msgs-${cid}`, list);
+    return;
+  }
+  try {
+    await deleteDoc(doc(db, "conversations", cid, "messages", messageId));
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+export async function markConversationRead(cid: string, uid: string): Promise<void> {
+  if (!isFirebaseConfigured) {
+    const key = `sirbax-read-${uid}`;
+    const map = lsGet<Record<string, string>>(key, {});
+    map[cid] = new Date().toISOString();
+    lsSet(key, map);
+    return;
+  }
+  try {
+    await updateDoc(doc(db, "conversations", cid), {
+      [`readAt.${uid}`]: serverTimestamp(),
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+export function setTyping(cid: string, uid: string, typing: boolean) {
+  if (typeof window === "undefined") return;
+  const key = `sirbax-typing-${cid}`;
+  const map = lsGet<Record<string, number>>(key, {});
+  if (typing) map[uid] = Date.now();
+  else delete map[uid];
+  lsSet(key, map);
+}
+
+export function getTypingOthers(cid: string, me: string): boolean {
+  const map = lsGet<Record<string, number>>(`sirbax-typing-${cid}`, {});
+  const now = Date.now();
+  return Object.entries(map).some(([uid, ts]) => uid !== me && now - ts < 3000);
+}
+
+export function setOnline(uid: string) {
+  if (typeof window === "undefined") return;
+  const map = lsGet<Record<string, number>>("sirbax-online", {});
+  map[uid] = Date.now();
+  lsSet("sirbax-online", map);
+}
+
+export function isOnline(uid: string): boolean {
+  const map = lsGet<Record<string, number>>("sirbax-online", {});
+  return Boolean(map[uid] && Date.now() - map[uid] < 60_000);
+}
+
+export async function deleteComment(postId: string, commentId: string, authorId: string): Promise<void> {
+  if (!isFirebaseConfigured) {
+    lsSet(
+      `sirbax-comments-${postId}`,
+      lsGet<CommentItem[]>(`sirbax-comments-${postId}`, []).filter(
+        (c) => !(c.id === commentId && c.authorId === authorId)
+      )
+    );
+    return;
+  }
+  try {
+    await deleteDoc(doc(db, "posts", postId, "comments", commentId));
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+export async function editComment(
+  postId: string,
+  commentId: string,
+  authorId: string,
+  content: string
+): Promise<void> {
+  if (!isFirebaseConfigured) {
+    lsSet(
+      `sirbax-comments-${postId}`,
+      lsGet<CommentItem[]>(`sirbax-comments-${postId}`, []).map((c) =>
+        c.id === commentId && c.authorId === authorId
+          ? { ...c, content, text: content, isEdited: true }
+          : c
+      )
+    );
+    return;
+  }
+  try {
+    await updateDoc(doc(db, "posts", postId, "comments", commentId), {
+      content,
+      text: content,
+      isEdited: true,
+    });
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+export async function searchEverything(q: string): Promise<{
+  users: { uid: string; nickname: string; avatarUrl: string }[];
+  posts: Post[];
+  hashtags: string[];
+}> {
+  const term = q.trim().toLowerCase().replace(/^#/, "").replace(/^@/, "");
+  if (!term) return { users: [], posts: [], hashtags: [] };
+
+  const posts = await (await import("@/services/postService")).getFeedPosts(80);
+  const matchedPosts = posts.filter(
+    (p) =>
+      p.content.toLowerCase().includes(term) ||
+      p.authorNickname.toLowerCase().includes(term) ||
+      (p.hashtags || []).some((h) => h.toLowerCase().includes(term))
+  );
+
+  const userMap = new Map<string, { uid: string; nickname: string; avatarUrl: string }>();
+  for (const p of posts) {
+    if (p.authorNickname.toLowerCase().includes(term)) {
+      userMap.set(p.authorId, {
+        uid: p.authorId,
+        nickname: p.authorNickname,
+        avatarUrl: p.authorAvatar,
+      });
+    }
+  }
+
+  const tagSet = new Set<string>();
+  for (const p of posts) {
+    for (const h of p.hashtags || []) {
+      if (h.toLowerCase().includes(term)) tagSet.add(h.toLowerCase());
+    }
+  }
+  for (const h of ["confession", "relationship", "school", "family", "work", "money", "kenya", "life"]) {
+    if (h.includes(term) || term.includes(h)) tagSet.add(h);
+  }
+
+  return {
+    users: [...userMap.values()],
+    posts: matchedPosts,
+    hashtags: [...tagSet],
+  };
 }
