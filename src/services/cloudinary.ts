@@ -15,12 +15,18 @@ export interface CloudinaryUploadResult {
 const MAX_BYTES = 8 * 1024 * 1024;
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
-const CLOUD = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "dozqfm7t";
-const PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "sir_bax";
+const CLOUD =
+  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "dozqfm7t";
+const PRESET =
+  process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "sir_bax";
 
 export function validateImageFile(file: File): string | null {
-  if (!ALLOWED.includes(file.type)) return "Only JPEG, PNG, WebP, or GIF images are allowed";
-  if (file.size > MAX_BYTES) return "Image must be under 8MB";
+  if (!ALLOWED.includes(file.type)) {
+    return "Only JPEG, PNG, WebP, or GIF images are allowed";
+  }
+  if (file.size > MAX_BYTES) {
+    return "Image must be under 8MB";
+  }
   return null;
 }
 
@@ -45,10 +51,10 @@ export async function uploadImage(file: File): Promise<CloudinaryUploadResult> {
   form.append("upload_preset", PRESET);
   form.append("folder", "sirbax");
 
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD}/image/upload`, {
-    method: "POST",
-    body: form,
-  });
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUD}/image/upload`,
+    { method: "POST", body: form }
+  );
 
   if (!res.ok) {
     let message = "Image upload failed";
@@ -62,7 +68,9 @@ export async function uploadImage(file: File): Promise<CloudinaryUploadResult> {
   }
 
   const data = await res.json();
-  if (!data.secure_url) throw new Error("Cloudinary did not return a secure URL");
+  if (!data.secure_url) {
+    throw new Error("Cloudinary did not return a secure URL");
+  }
 
   return {
     publicId: data.public_id as string,
@@ -76,6 +84,18 @@ export async function uploadImage(file: File): Promise<CloudinaryUploadResult> {
 
 export async function uploadImages(files: File[]): Promise<CloudinaryUploadResult[]> {
   const out: CloudinaryUploadResult[] = [];
-  for (const f of files) out.push(await uploadImage(f));
+  for (const f of files) {
+    out.push(await uploadImage(f));
+  }
   return out;
+}
+
+/** High-quality display URL — avoids over-compression / blur */
+export function displayImageUrl(url: string, width = 1200): string {
+  if (!url) return url;
+  if (!url.includes("res.cloudinary.com")) return url;
+  if (url.includes("/upload/")) {
+    return url.replace("/upload/", `/upload/q_auto:good,f_auto,c_limit,w_${width}/`);
+  }
+  return url;
 }
