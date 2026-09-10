@@ -142,6 +142,31 @@ export const so = {
   openEmailApp: "Fur app-ka iimaylka",
   resendEmail: "Dib u dir iimayl",
   backToLogin: "Ku noqo gelitaanka",
+
+  // Marketplace / escrow
+  sell: "Iibi",
+  buyNow: "Hadda iibso",
+  myOrders: "Dalabadayda",
+  myListings: "Liistadayda",
+  orderStatus: "Xaaladda dalabka",
+  payNow: "Bixi hadda",
+  markShipped: "Calaamadee in la diray",
+  confirmReceived: "Xaqiiji helitaanka",
+  escrowHeld: "Lacagta waxaa haystaa sirbax",
+  fundsReleased: "Lacagta waa la sii daayay iibiyaha",
+  waitingPayment: "Sugidda lacag-bixinta",
+  waitingShipment: "Sugidda dirista",
+  waitingDelivery: "Sugidda helitaanka",
+  completed: "Dhammaatay",
+  cancelled: "La joojiyay",
+  listingPrice: "Qiimaha",
+  listingTitle: "Cinwaanka",
+  listingDesc: "Faahfaahin",
+  postListing: "Dhig liistada",
+  contactSeller: "La xiriir iibiyaha",
+  platformFee: "Khidmadda platform-ka",
+  totalDue: "Wadarta la bixinayo",
+  orderPlaced: "Dalabka waa la sameeyay",
 };
 
 export type TranslationKey = keyof typeof so;
