@@ -13,6 +13,7 @@ import {
   limit,
   serverTimestamp,
   updateDoc,
+  deleteDoc,
   increment,
   type Timestamp,
 } from "firebase/firestore";
@@ -87,18 +88,35 @@ function mergeUnique(primary: Post[], secondary: Post[]): Post[] {
   return out;
 }
 
+function sanitizeMedia(p: Post): Post {
+  if (!p.media?.length) return p;
+  const media = p.media.filter(
+    (m) => m?.url && !m.url.startsWith("blob:") && !m.url.startsWith("data:")
+  );
+  return { ...p, media: media.length ? media : undefined };
+}
+
 export async function getFeedPosts(max = 50): Promise<Post[]> {
-  const local = loadLocal();
+  const local = loadLocal().map(sanitizeMedia);
 
   if (!isFirebaseConfigured) {
     return rankPosts(local).slice(0, max);
   }
 
   try {
-    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(80));
-    const snap = await getDocs(q);
-    const remote = snap.docs.map((d) => mapDoc(d.id, d.data()));
-    const merged = mergeUnique(local, remote);
+    let remote: Post[] = [];
+    try {
+      const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(100));
+      const snap = await getDocs(q);
+      remote = snap.docs.map((d) => sanitizeMedia(mapDoc(d.id, d.data())));
+    } catch (idxErr) {
+      console.warn("getFeedPosts orderBy failed, fallback", idxErr);
+      const snap = await getDocs(query(collection(db, "posts"), limit(100)));
+      remote = snap.docs
+        .map((d) => sanitizeMedia(mapDoc(d.id, d.data())))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+    const merged = mergeUnique(remote, local);
     return rankPosts(merged).slice(0, max);
   } catch (e) {
     console.error("getFeedPosts", e);
@@ -136,12 +154,17 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
   const now = new Date().toISOString();
   const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+  const media = (input.media || []).filter(
+    (m) => m?.url && (m.url.startsWith("https://") || m.url.startsWith("http://"))
+  );
+  const mediaOrUndef = media.length ? media : undefined;
+
   const baseFields = {
     authorId: input.authorId,
     authorNickname: input.authorNickname,
     authorAvatar: input.authorAvatar || "",
     content: input.content || "",
-    media: input.media || null,
+    media: mediaOrUndef || null,
     visibility: input.visibility || "everyone",
     hashtags: input.hashtags || [],
     mentions: input.mentions || [],
@@ -157,7 +180,7 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
   const localPost: Post = {
     id: localId,
     ...baseFields,
-    media: input.media,
+    media: mediaOrUndef,
     createdAt: now,
     updatedAt: now,
   };
@@ -188,8 +211,12 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
     saveLocal(posts);
     return remotePost;
   } catch (e) {
-    console.error("createPost firebase failed, kept local", e);
-    return localPost;
+    console.error("createPost firebase failed", e);
+    throw new Error(
+      e instanceof Error
+        ? `Post saved only on this device: ${e.message}. Check Firestore rules / network.`
+        : "Could not publish post to the server"
+    );
   }
 }
 
@@ -223,4 +250,64 @@ export async function reactToPost(
   } catch {
     /* local already updated */
   }
+}
+
+export async function deletePost(postId: string, authorId: string): Promise<void> {
+  const existing = loadLocal().find((p) => p.id === postId);
+  if (existing && existing.authorId !== authorId) {
+    throw new Error("You can only delete your own posts");
+  }
+
+  if (isFirebaseConfigured) {
+    try {
+      const snap = await getDoc(doc(db, "posts", postId));
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.authorId && data.authorId !== authorId) {
+          throw new Error("You can only delete your own posts");
+        }
+        await deleteDoc(doc(db, "posts", postId));
+      }
+    } catch (e) {
+      console.error("deletePost firebase", e);
+      throw e instanceof Error ? e : new Error("Failed to delete post");
+    }
+  }
+
+  saveLocal(loadLocal().filter((p) => p.id !== postId));
+}
+
+export async function editPost(postId: string, content: string, authorId: string): Promise<void> {
+  const now = new Date().toISOString();
+  saveLocal(
+    loadLocal().map((p) =>
+      p.id === postId ? { ...p, content, isEdited: true, updatedAt: now } : p
+    )
+  );
+  if (!isFirebaseConfigured) return;
+  try {
+    await updateDoc(doc(db, "posts", postId), {
+      content,
+      isEdited: true,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (e) {
+    console.error("editPost", e);
+  }
+}
+
+export async function sharePost(
+  original: Post,
+  sharer: { uid: string; nickname: string; avatarUrl?: string },
+  caption?: string
+): Promise<Post> {
+  return createPost({
+    authorId: sharer.uid,
+    authorNickname: sharer.nickname,
+    authorAvatar: sharer.avatarUrl,
+    content: caption?.trim() || `Shared a post by ${original.authorNickname}`,
+    media: original.media,
+    visibility: "everyone",
+    hashtags: original.hashtags || [],
+  });
 }
