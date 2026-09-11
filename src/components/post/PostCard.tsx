@@ -38,6 +38,7 @@ export function PostCard({ post }: { post: Post }) {
   const [menu, setMenu] = useState(false);
   const [gone, setGone] = useState(false);
   const [lightbox, setLightbox] = useState<number | null>(null);
+  const [reacting, setReacting] = useState(false);
   const [timeLabel, setTimeLabel] = useState(() => formatRelativeTime(post.createdAt));
 
   useEffect(() => {
@@ -53,38 +54,63 @@ export function PostCard({ post }: { post: Post }) {
     } catch { /* ignore */ }
   }, [post.id]);
 
+  // Restore permanent reaction after refresh
   useEffect(() => {
     if (!user?.uid) return;
+    let cancelled = false;
     getMyReaction(post.id, user.uid).then((r) => {
+      if (cancelled) return;
       setReaction(r);
       setLiked(Boolean(r));
     });
+    return () => { cancelled = true; };
   }, [post.id, user?.uid]);
 
   const onReact = async (type: ReactionType) => {
-    if (!user?.uid) return;
+    if (!user?.uid || reacting) return;
     setShowReactions(false);
+    setReacting(true);
+
+    const was = reaction;
+    // Optimistic — show mark immediately
+    if (was === type) {
+      setReaction(null);
+      setLiked(false);
+      setLikes((n) => Math.max(0, n - 1));
+    } else {
+      setReaction(type);
+      setLiked(true);
+      if (!was) setLikes((n) => n + 1);
+    }
+
     try {
       const res = await toggleReaction(post.id, user.uid, type);
       setReaction(res.type);
       setLiked(Boolean(res.type));
-      if (res.previous === type && !res.type) setLikes((n) => Math.max(0, n - 1));
-      else if (!res.previous && res.type) {
-        setLikes((n) => n + 1);
-        if (post.authorId !== user.uid) {
-          createNotification({
-            recipientId: post.authorId,
-            actorId: user.uid,
-            actorNickname: user.nickname,
-            actorAvatar: user.avatarUrl,
-            type: "like",
-            postId: post.id,
-            text: "reacted to your post",
-          });
-          pushNotify({ title: "Reaction", body: `You reacted to ${post.authorNickname}'s post`, href: `/post/${post.id}` });
-        }
+      if (res.type && !res.previous && post.authorId !== user.uid) {
+        createNotification({
+          recipientId: post.authorId,
+          actorId: user.uid,
+          actorNickname: user.nickname,
+          actorAvatar: user.avatarUrl,
+          type: "like",
+          postId: post.id,
+          text: "reacted to your post",
+        });
+        pushNotify({
+          title: "sirbax",
+          body: `You reacted to ${post.authorNickname}'s post`,
+          href: `/post/${post.id}`,
+        });
       }
-    } catch { /* ignore */ }
+    } catch {
+      setReaction(was);
+      setLiked(Boolean(was));
+      if (was === type) setLikes((n) => n + 1);
+      else if (!was) setLikes((n) => Math.max(0, n - 1));
+    } finally {
+      setReacting(false);
+    }
   };
 
   const active = REACTIONS.find((r) => r.type === reaction);
@@ -206,7 +232,17 @@ export function PostCard({ post }: { post: Post }) {
               ))}
             </div>
           )}
-          <button type="button" className={cn("flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-[13px] font-medium transition active:bg-slate-50", liked ? active?.color || "text-blue-600" : "text-slate-600")} onClick={() => onReact(reaction || "like")} onMouseEnter={() => setShowReactions(true)} onMouseLeave={() => setTimeout(() => setShowReactions(false), 350)}>
+          <button
+            type="button"
+            disabled={reacting}
+            className={cn(
+              "flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-[13px] font-medium transition active:bg-slate-50",
+              liked ? active?.color || "text-blue-600" : "text-slate-600"
+            )}
+            onClick={() => onReact(reaction || "like")}
+            onMouseEnter={() => setShowReactions(true)}
+            onMouseLeave={() => setTimeout(() => setShowReactions(false), 350)}
+          >
             {active ? <span className="text-base leading-none">{active.glyph}</span> : <ThumbsUp className={cn("h-[17px] w-[17px]", liked && "fill-current")} />}
             <span>{active?.label || t.like}</span>
           </button>
