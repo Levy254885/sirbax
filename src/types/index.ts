@@ -35,6 +35,11 @@ export interface UserProfile {
   updatedAt: string;
   onboardingComplete: boolean;
   role?: "user" | "moderator" | "admin";
+  /** ISO date — nickname can change only once every 7 days */
+  lastNicknameChangeAt?: string;
+  /** ISO date — avatar can change only once every 7 days */
+  lastAvatarChangeAt?: string;
+  nicknameLower?: string;
 }
 
 export interface Post {
