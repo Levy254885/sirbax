@@ -1,6 +1,5 @@
 /**
- * Follows, comments, stories, DMs — Firestore + localStorage fallback.
- * Conversations keyed by sorted user UIDs so messages never go to the wrong profile.
+ * Follows, comments, stories, DMs — Firestore is source of truth.
  */
 import {
   collection, doc, getDoc, getDocs, setDoc, deleteDoc, addDoc, updateDoc,
@@ -54,9 +53,33 @@ export async function followUser(followerId: string, targetId: string): Promise<
     }
     return;
   }
-  await setDoc(doc(db, "follows", `${followerId}_${targetId}`), { followerId, followingId: targetId, createdAt: serverTimestamp() });
-  await updateDoc(doc(db, "users", targetId), { followersCount: increment(1) }).catch(() => {});
-  await updateDoc(doc(db, "users", followerId), { followingCount: increment(1) }).catch(() => {});
+
+  const followRef = doc(db, "follows", `${followerId}_${targetId}`);
+  const existing = await getDoc(followRef);
+  if (existing.exists()) return;
+
+  await setDoc(followRef, {
+    followerId,
+    followingId: targetId,
+    createdAt: serverTimestamp(),
+  });
+
+  try {
+    await updateDoc(doc(db, "users", targetId), {
+      followersCount: increment(1),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (e) {
+    console.error("followUser target count failed", e);
+  }
+  try {
+    await updateDoc(doc(db, "users", followerId), {
+      followingCount: increment(1),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (e) {
+    console.error("followUser self count failed", e);
+  }
 }
 
 export async function unfollowUser(followerId: string, targetId: string): Promise<void> {
@@ -68,9 +91,29 @@ export async function unfollowUser(followerId: string, targetId: string): Promis
     lsSet("sirbax-follow-counts", counts);
     return;
   }
-  await deleteDoc(doc(db, "follows", `${followerId}_${targetId}`));
-  await updateDoc(doc(db, "users", targetId), { followersCount: increment(-1) }).catch(() => {});
-  await updateDoc(doc(db, "users", followerId), { followingCount: increment(-1) }).catch(() => {});
+
+  const followRef = doc(db, "follows", `${followerId}_${targetId}`);
+  const existing = await getDoc(followRef);
+  if (!existing.exists()) return;
+
+  await deleteDoc(followRef);
+
+  try {
+    await updateDoc(doc(db, "users", targetId), {
+      followersCount: increment(-1),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (e) {
+    console.error("unfollowUser target count failed", e);
+  }
+  try {
+    await updateDoc(doc(db, "users", followerId), {
+      followingCount: increment(-1),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (e) {
+    console.error("unfollowUser self count failed", e);
+  }
 }
 
 export async function isFollowing(followerId: string, targetId: string): Promise<boolean> {
@@ -81,6 +124,31 @@ export async function isFollowing(followerId: string, targetId: string): Promise
 export function getLocalFollowCounts(uid: string): { followers: number; following: number } {
   const counts = lsGet<Record<string, { followers: number; following: number }>>("sirbax-follow-counts", {});
   return counts[uid] || { followers: 0, following: 0 };
+}
+
+/** Prefer Firestore user counters; recount from edges if counters are 0. */
+export async function getFollowCounts(uid: string): Promise<{ followers: number; following: number }> {
+  if (!isFirebaseConfigured) return getLocalFollowCounts(uid);
+  try {
+    const snap = await getDoc(doc(db, "users", uid));
+    if (snap.exists()) {
+      const d = snap.data();
+      let followers = Number(d.followersCount) || 0;
+      let following = Number(d.followingCount) || 0;
+      if (followers === 0 && following === 0) {
+        const [asTarget, asFollower] = await Promise.all([
+          getDocs(query(collection(db, "follows"), where("followingId", "==", uid), limit(500))),
+          getDocs(query(collection(db, "follows"), where("followerId", "==", uid), limit(500))),
+        ]);
+        followers = asTarget.size;
+        following = asFollower.size;
+      }
+      return { followers, following };
+    }
+  } catch (e) {
+    console.warn("getFollowCounts", e);
+  }
+  return getLocalFollowCounts(uid);
 }
 
 export interface CommentItem {
@@ -148,10 +216,6 @@ export async function addComment(
   };
   if (!isFirebaseConfigured) {
     lsSet(`sirbax-comments-${postId}`, [item, ...lsGet<CommentItem[]>(`sirbax-comments-${postId}`, [])]);
-    const posts = lsGet<Post[]>("sirbax-posts", DEMO_POSTS).map((p) =>
-      p.id === postId ? { ...p, commentsCount: (p.commentsCount || 0) + 1 } : p
-    );
-    lsSet("sirbax-posts", posts);
     return item;
   }
   const ref = await addDoc(collection(db, "posts", postId, "comments"), {
@@ -298,8 +362,48 @@ export async function listConversations(uid: string): Promise<ConversationMeta[]
 }
 
 export async function getPostsByAuthor(authorId: string): Promise<Post[]> {
-  const { getFeedPosts } = await import("./postService");
-  return (await getFeedPosts(100)).filter((p) => p.authorId === authorId);
+  if (!isFirebaseConfigured) {
+    const { getFeedPosts } = await import("./postService");
+    return (await getFeedPosts(100)).filter((p) => p.authorId === authorId);
+  }
+  try {
+    const snap = await getDocs(
+      query(collection(db, "posts"), where("authorId", "==", authorId), limit(50))
+    );
+    const posts = snap.docs.map((d) => {
+      const data = d.data();
+      const created = data.createdAt as Timestamp | string | undefined;
+      const createdAt =
+        created && typeof created === "object" && "toDate" in created
+          ? (created as Timestamp).toDate().toISOString()
+          : (created as string) || new Date().toISOString();
+      return {
+        id: d.id,
+        authorId: (data.authorId as string) || authorId,
+        authorNickname: (data.authorNickname as string) || "",
+        authorAvatar: (data.authorAvatar as string) || "",
+        content: (data.content as string) || "",
+        media: data.media || undefined,
+        visibility: (data.visibility as Post["visibility"]) || "everyone",
+        hashtags: (data.hashtags as string[]) || [],
+        mentions: (data.mentions as string[]) || [],
+        likesCount: (data.likesCount as number) ?? 0,
+        commentsCount: (data.commentsCount as number) ?? 0,
+        sharesCount: (data.sharesCount as number) ?? 0,
+        reactions: (data.reactions as Post["reactions"]) || {},
+        isEdited: Boolean(data.isEdited),
+        commentsDisabled: Boolean(data.commentsDisabled),
+        sharesDisabled: Boolean(data.sharesDisabled),
+        createdAt,
+        updatedAt: createdAt,
+      } as Post;
+    });
+    return posts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  } catch (e) {
+    console.warn("getPostsByAuthor", e);
+    const { getFeedPosts } = await import("./postService");
+    return (await getFeedPosts(100)).filter((p) => p.authorId === authorId);
+  }
 }
 
 export async function likeComment(postId: string, commentId: string): Promise<void> {
@@ -330,10 +434,7 @@ export async function listFollowingIds(followerId: string): Promise<string[]> {
 }
 
 export async function listFollowerIds(targetId: string): Promise<string[]> {
-  if (!isFirebaseConfigured) {
-    const counts = lsGet<Record<string, { followers: number; following: number }>>("sirbax-follow-counts", {});
-    return [];
-  }
+  if (!isFirebaseConfigured) return [];
   try {
     const snap = await getDocs(query(collection(db, "follows"), where("followingId", "==", targetId), limit(200)));
     return snap.docs.map((d) => d.data().followerId as string).filter(Boolean);
@@ -358,10 +459,12 @@ export async function notifyFollow(
 
 export async function deleteMessage(cid: string, messageId: string, senderId: string): Promise<void> {
   if (!isFirebaseConfigured) {
-    const list = lsGet<ChatMessage[]>(`sirbax-msgs-${cid}`, []).filter(
-      (m) => !(m.id === messageId && m.senderId === senderId)
+    lsSet(
+      `sirbax-msgs-${cid}`,
+      lsGet<ChatMessage[]>(`sirbax-msgs-${cid}`, []).filter(
+        (m) => !(m.id === messageId && m.senderId === senderId)
+      )
     );
-    lsSet(`sirbax-msgs-${cid}`, list);
     return;
   }
   try {
@@ -372,13 +475,7 @@ export async function deleteMessage(cid: string, messageId: string, senderId: st
 }
 
 export async function markConversationRead(cid: string, uid: string): Promise<void> {
-  if (!isFirebaseConfigured) {
-    const key = `sirbax-read-${uid}`;
-    const map = lsGet<Record<string, string>>(key, {});
-    map[cid] = new Date().toISOString();
-    lsSet(key, map);
-    return;
-  }
+  if (!isFirebaseConfigured) return;
   try {
     await updateDoc(doc(db, "conversations", cid), {
       [`readAt.${uid}`]: serverTimestamp(),
