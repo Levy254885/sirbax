@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/context/I18nContext";
 import { generateAnonymousNickname, generateDefaultAvatar } from "@/utils/nickname";
+import { nicknameRevealsRealName } from "@/utils/realNameGuard";
+import toast from "@/lib/toast";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -13,6 +15,8 @@ export default function OnboardingPage() {
   const { t } = useI18n();
   const [nickname, setNickname] = useState(user?.nickname || generateAnonymousNickname());
   const [bio, setBio] = useState(user?.bio || "");
+  /** Private only — never written to profile */
+  const [privateRealName, setPrivateRealName] = useState("");
   const [step, setStep] = useState<"identity" | "welcome">("identity");
   const [saving, setSaving] = useState(false);
 
@@ -21,6 +25,12 @@ export default function OnboardingPage() {
   const reshuffle = () => setNickname(generateAnonymousNickname());
 
   const continueIdentity = async () => {
+    const check = nicknameRevealsRealName(nickname, privateRealName);
+    if (!check.allowed) {
+      toast.error(check.reason);
+      return;
+    }
+
     setSaving(true);
     try {
       await updateProfile({
@@ -29,7 +39,10 @@ export default function OnboardingPage() {
         bio: bio.trim() || undefined,
         onboardingComplete: false,
       });
+      setPrivateRealName("");
       setStep("welcome");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save");
     } finally {
       setSaving(false);
     }
@@ -58,10 +71,12 @@ export default function OnboardingPage() {
             {t.welcomeToSirbax}
           </h1>
           <p className="text-[15px] leading-relaxed text-slate-600">{t.realConversations}</p>
-          <p className="mb-8 text-[15px] leading-relaxed text-slate-600">{t.anonymousIdentities}</p>
+          <p className="mb-8 text-[15px] leading-relaxed text-slate-600">
+            {t.anonymousIdentities}
+          </p>
           <Button
             size="lg"
-            className="w-full rounded-2xl bg-blue-600 text-base font-semibold text-white shadow-md hover:bg-blue-700"
+            className="w-full rounded-2xl bg-blue-600 text-[15px] font-semibold text-white shadow-md hover:bg-blue-700"
             loading={saving}
             onClick={finish}
           >
@@ -103,17 +118,18 @@ export default function OnboardingPage() {
 
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col items-center">
-            <div className="relative">
-              <div className="h-28 w-28 overflow-hidden rounded-full bg-slate-100 ring-4 ring-blue-100">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={avatarUrl} alt={nickname} className="h-full w-full object-cover" />
-              </div>
+            <div className="h-28 w-28 overflow-hidden rounded-full bg-slate-100 ring-4 ring-blue-100">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={avatarUrl} alt={nickname} className="h-full w-full object-cover" />
             </div>
 
             <div className="mt-5 flex w-full items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <span className="min-w-0 flex-1 truncate text-center text-lg font-semibold text-slate-900">
-                {nickname}
-              </span>
+              <input
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                autoComplete="off"
+                className="min-w-0 flex-1 truncate bg-transparent text-center text-lg font-semibold text-slate-900 outline-none"
+              />
               <button
                 type="button"
                 onClick={reshuffle}
@@ -124,8 +140,28 @@ export default function OnboardingPage() {
             </div>
           </div>
 
+          <div className="mt-5 rounded-2xl border border-amber-100 bg-amber-50/80 p-3">
+            <label className="mb-1.5 block text-sm font-medium text-slate-800">
+              Your real / legal name (private)
+            </label>
+            <input
+              type="text"
+              value={privateRealName}
+              onChange={(e) => setPrivateRealName(e.target.value)}
+              autoComplete="off"
+              placeholder="Never shown publicly"
+              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm focus:border-blue-500 focus:outline-none"
+            />
+            <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
+              Used only to block nicknames that reveal your identity. Your real name is{" "}
+              <strong>never</strong> saved on your public profile or shown to other users.
+            </p>
+          </div>
+
           <div className="mt-6">
-            <label className="mb-2 block text-sm font-medium text-slate-700">{t.addBioOptional}</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              {t.addBioOptional}
+            </label>
             <textarea
               value={bio}
               onChange={(e) => setBio(e.target.value)}
