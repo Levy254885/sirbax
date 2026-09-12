@@ -1,6 +1,6 @@
 /**
- * Posts: Firebase when available, always mirrored to localStorage so the
- * author (and this browser) always sees new posts immediately.
+ * Posts: Firebase is the source of truth so every member sees the same feed.
+ * localStorage is only a cache after a successful Firebase write.
  */
 import {
   collection,
@@ -116,7 +116,9 @@ export async function getFeedPosts(max = 50): Promise<Post[]> {
         .map((d) => sanitizeMedia(mapDoc(d.id, d.data())))
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
-    const merged = mergeUnique(remote, local);
+    // Prefer remote (shared). Only keep unpublished local-* stubs if any.
+    const localUnpublished = local.filter((p) => p.id.startsWith("local-"));
+    const merged = mergeUnique(remote, localUnpublished);
     return rankPosts(merged).slice(0, max);
   } catch (e) {
     console.error("getFeedPosts", e);
@@ -125,16 +127,15 @@ export async function getFeedPosts(max = 50): Promise<Post[]> {
 }
 
 export async function getPostById(id: string): Promise<Post | null> {
-  const localHit = loadLocal().find((p) => p.id === id);
-  if (localHit) return localHit;
-  if (!isFirebaseConfigured) return null;
-  try {
-    const snap = await getDoc(doc(db, "posts", id));
-    if (!snap.exists()) return null;
-    return mapDoc(snap.id, snap.data());
-  } catch {
-    return null;
+  if (isFirebaseConfigured && !id.startsWith("local-")) {
+    try {
+      const snap = await getDoc(doc(db, "posts", id));
+      if (snap.exists()) return mapDoc(snap.id, snap.data());
+    } catch {
+      /* fall through */
+    }
   }
+  return loadLocal().find((p) => p.id === id) || null;
 }
 
 export interface CreatePostInput {
@@ -152,7 +153,6 @@ export interface CreatePostInput {
 
 export async function createPost(input: CreatePostInput): Promise<Post> {
   const now = new Date().toISOString();
-  const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   const media = (input.media || []).filter(
     (m) => m?.url && (m.url.startsWith("https://") || m.url.startsWith("http://"))
@@ -177,19 +177,20 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
     sharesDisabled: input.sharesDisabled ?? false,
   };
 
-  const localPost: Post = {
-    id: localId,
-    ...baseFields,
-    media: mediaOrUndef,
-    createdAt: now,
-    updatedAt: now,
-  };
-  saveLocal([localPost, ...loadLocal().filter((p) => p.id !== localId)]);
-
   if (!isFirebaseConfigured) {
+    const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const localPost: Post = {
+      id: localId,
+      ...baseFields,
+      media: mediaOrUndef,
+      createdAt: now,
+      updatedAt: now,
+    };
+    saveLocal([localPost, ...loadLocal().filter((p) => p.id !== localId)]);
     return localPost;
   }
 
+  // Firebase required — posts must be visible to all members
   try {
     const ref = await addDoc(collection(db, "posts"), {
       ...baseFields,
@@ -202,28 +203,29 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
         postsCount: increment(1),
         updatedAt: serverTimestamp(),
       });
-    } catch {
-      /* optional */
+    } catch (e) {
+      console.warn("postsCount bump failed", e);
     }
 
-    const remotePost: Post = { ...localPost, id: ref.id };
-    const posts = loadLocal().map((p) => (p.id === localId ? remotePost : p));
-    saveLocal(posts);
+    const remotePost: Post = {
+      id: ref.id,
+      ...baseFields,
+      media: mediaOrUndef,
+      createdAt: now,
+      updatedAt: now,
+    };
+    saveLocal([remotePost, ...loadLocal().filter((p) => p.id !== ref.id && !p.id.startsWith("local-"))]);
     return remotePost;
   } catch (e) {
     console.error("createPost firebase failed", e);
     throw new Error(
       e instanceof Error
-        ? `Post saved only on this device: ${e.message}. Check Firestore rules / network.`
+        ? `Could not publish post: ${e.message}. Sign in again or check Firestore rules.`
         : "Could not publish post to the server"
     );
   }
 }
 
-/**
- * @deprecated Use toggleReaction from reactionService.
- * This wrapper exists so any leftover callers cannot inflate counts.
- */
 export async function reactToPost(
   postId: string,
   uid: string,
@@ -239,7 +241,7 @@ export async function deletePost(postId: string, authorId: string): Promise<void
     throw new Error("You can only delete your own posts");
   }
 
-  if (isFirebaseConfigured) {
+  if (isFirebaseConfigured && !postId.startsWith("local-")) {
     try {
       const snap = await getDoc(doc(db, "posts", postId));
       if (snap.exists()) {
@@ -265,7 +267,7 @@ export async function editPost(postId: string, content: string, authorId: string
       p.id === postId ? { ...p, content, isEdited: true, updatedAt: now } : p
     )
   );
-  if (!isFirebaseConfigured) return;
+  if (!isFirebaseConfigured || postId.startsWith("local-")) return;
   try {
     await updateDoc(doc(db, "posts", postId), {
       content,
