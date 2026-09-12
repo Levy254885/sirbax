@@ -220,36 +220,17 @@ export async function createPost(input: CreatePostInput): Promise<Post> {
   }
 }
 
+/**
+ * @deprecated Use toggleReaction from reactionService.
+ * This wrapper exists so any leftover callers cannot inflate counts.
+ */
 export async function reactToPost(
   postId: string,
-  _uid: string,
+  uid: string,
   type: ReactionType
 ): Promise<void> {
-  const posts = loadLocal().map((p) =>
-    p.id === postId
-      ? {
-          ...p,
-          likesCount: (p.likesCount || 0) + 1,
-          reactions: {
-            ...p.reactions,
-            [type]: ((p.reactions?.[type] as number) || 0) + 1,
-          },
-        }
-      : p
-  );
-  saveLocal(posts);
-
-  if (!isFirebaseConfigured) return;
-
-  try {
-    await updateDoc(doc(db, "posts", postId), {
-      likesCount: increment(1),
-      [`reactions.${type}`]: increment(1),
-      updatedAt: serverTimestamp(),
-    });
-  } catch {
-    /* local already updated */
-  }
+  const { toggleReaction } = await import("@/services/reactionService");
+  await toggleReaction(postId, uid, type);
 }
 
 export async function deletePost(postId: string, authorId: string): Promise<void> {
