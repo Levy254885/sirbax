@@ -4,7 +4,7 @@ import {
 import { db, isFirebaseConfigured } from "@/firebase/config";
 import type { UserProfile } from "@/types";
 
-const COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+const COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 function mapUser(id: string, data: Record<string, unknown>): UserProfile {
   return {
@@ -33,6 +33,11 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   return mapUser(snap.id, snap.data() as Record<string, unknown>);
 }
 
+/** Alias used by profile routes */
+export async function getUserById(uid: string): Promise<UserProfile | null> {
+  return getUserProfile(uid);
+}
+
 export function daysUntilChangeAllowed(lastChangeAt?: string): number {
   if (!lastChangeAt) return 0;
   const elapsed = Date.now() - new Date(lastChangeAt).getTime();
@@ -44,6 +49,7 @@ export function canChangeNow(lastChangeAt?: string): boolean {
   return daysUntilChangeAllowed(lastChangeAt) === 0;
 }
 
+/** Returns true if nickname is taken by someone else */
 export async function isNicknameTaken(nickname: string, excludeUid?: string): Promise<boolean> {
   const lower = nickname.trim().toLowerCase();
   if (!lower) return true;
@@ -66,6 +72,7 @@ export async function isNicknameTaken(nickname: string, excludeUid?: string): Pr
     if (!snap.empty) {
       return snap.docs.some((d) => d.id !== excludeUid);
     }
+    // Fallback scan if nicknameLower not indexed yet
     const all = await getDocs(query(collection(db, "users"), limit(200)));
     return all.docs.some(
       (d) => d.id !== excludeUid && ((d.data().nickname as string) || "").toLowerCase() === lower
