@@ -3,9 +3,7 @@ rules_version = '2';
 /**
  * Sirbax — production Firestore security rules
  *
- * Paste into: Firebase Console → Firestore Database → Rules → Publish
- *
- * Like uniqueness: posts/{postId}/likes/{userId} — doc id MUST equal auth uid.
+ * CRITICAL: Publish this file in Firebase Console → Firestore → Rules
  */
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -28,10 +26,18 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if true;
+
       allow create: if isUser(userId)
         && request.resource.data.keys().hasAny(['nickname'])
         && validNickname(request.resource.data.nickname);
-      allow update: if isUser(userId);
+
+      // Owner edits profile. Any signed-in user may bump public counters
+      // so follow/post counts work across accounts.
+      allow update: if isUser(userId)
+        || (signedIn()
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['followersCount', 'followingCount', 'postsCount', 'updatedAt']));
+
       allow delete: if isUser(userId);
     }
 
@@ -74,7 +80,6 @@ service cloud.firestore {
           && resource.data.authorId == request.auth.uid;
       }
 
-      // Legacy reactions path (doc id = uid)
       match /reactions/{reactionUid} {
         allow read: if true;
         allow create: if signedIn()
@@ -87,21 +92,16 @@ service cloud.firestore {
           && reactionUid == request.auth.uid;
       }
 
-      // Canonical unique likes: posts/{postId}/likes/{userId}
-      // Document ID MUST equal auth UID — enforces 1 like per user per post
       match /likes/{likeUid} {
         allow read: if true;
-
         allow create: if signedIn()
           && likeUid == request.auth.uid
           && request.resource.data.userId == request.auth.uid
           && request.resource.data.keys().hasAny(['type']);
-
         allow update: if signedIn()
           && likeUid == request.auth.uid
           && resource.data.userId == request.auth.uid
           && request.resource.data.userId == request.auth.uid;
-
         allow delete: if signedIn()
           && likeUid == request.auth.uid;
       }
