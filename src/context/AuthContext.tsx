@@ -225,19 +225,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let patch: Partial<UserProfile> = { ...data };
 
     if (patch.nickname !== undefined && patch.nickname !== current.nickname) {
+      const newNick = patch.nickname;
       if (!canChangeNow(current.lastNicknameChangeAt)) {
         throw new Error(
           `Nickname can only change once every 7 days. Wait ${daysUntilChangeAllowed(current.lastNicknameChangeAt)} day(s).`
         );
       }
-      const taken = await isNicknameTaken(patch.nickname, current.uid);
+      const taken = await isNicknameTaken(newNick, current.uid);
       if (taken) throw new Error("That nickname is already taken");
       patch = {
         ...patch,
-        nicknameLower: patch.nickname.toLowerCase(),
+        nickname: newNick,
+        nicknameLower: newNick.toLowerCase(),
         lastNicknameChangeAt: new Date().toISOString(),
       };
-      reserveLocalNickname(patch.nickname, current.uid);
+      reserveLocalNickname(newNick, current.uid);
     }
 
     if (patch.avatarUrl !== undefined && patch.avatarUrl !== current.avatarUrl) {
