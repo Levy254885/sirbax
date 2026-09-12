@@ -15,6 +15,7 @@ import {
   isNicknameTaken,
   reserveLocalNickname,
 } from "@/services/userService";
+import { nicknameRevealsRealName } from "@/utils/realNameGuard";
 import { generateAnonymousNickname } from "@/utils/nickname";
 import { deleteUser } from "firebase/auth";
 import { auth, isFirebaseConfigured, db } from "@/firebase/config";
@@ -26,6 +27,8 @@ export default function AccountSettingsPage() {
   const router = useRouter();
   const [bio, setBio] = useState(user?.bio || "");
   const [nickname, setNickname] = useState(user?.nickname || "");
+  /** Private only — never saved to profile / Firestore public fields */
+  const [privateRealName, setPrivateRealName] = useState("");
   const [busy, setBusy] = useState(false);
 
   if (!user) return null;
@@ -34,6 +37,8 @@ export default function AccountSettingsPage() {
   const avatarDays = daysUntilChangeAllowed(user.lastAvatarChangeAt);
   const canNick = canChangeNow(user.lastNicknameChangeAt);
   const canAvatar = canChangeNow(user.lastAvatarChangeAt);
+  const nicknameChanging =
+    canNick && nickname.trim().replace(/\s+/g, "") !== user.nickname;
 
   const save = async () => {
     setBusy(true);
@@ -52,6 +57,14 @@ export default function AccountSettingsPage() {
           setBusy(false);
           return;
         }
+
+        const check = nicknameRevealsRealName(nextNick, privateRealName);
+        if (!check.allowed) {
+          toast.error(check.reason);
+          setBusy(false);
+          return;
+        }
+
         const taken = await isNicknameTaken(nextNick, user.uid);
         if (taken) {
           toast.error("That nickname is already taken");
@@ -59,10 +72,12 @@ export default function AccountSettingsPage() {
           return;
         }
         updates.nickname = nextNick;
+        updates.lastNicknameChangeAt = new Date().toISOString();
         reserveLocalNickname(nextNick, user.uid);
       }
 
       await updateProfile(updates);
+      setPrivateRealName("");
       toast.success("Profile updated");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save");
@@ -87,7 +102,10 @@ export default function AccountSettingsPage() {
     setBusy(true);
     try {
       const up = await uploadImage(f);
-      await updateProfile({ avatarUrl: up.secureUrl });
+      await updateProfile({
+        avatarUrl: up.secureUrl,
+        lastAvatarChangeAt: new Date().toISOString(),
+      });
       toast.success("Avatar updated — next change in 7 days");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed");
@@ -131,18 +149,28 @@ export default function AccountSettingsPage() {
       <div className="space-y-5 bg-white px-4 py-6">
         <div className="flex flex-col items-center gap-2">
           <Avatar src={user.avatarUrl} alt={user.nickname} size="xl" />
-          <label className={`text-sm font-semibold ${canAvatar ? "cursor-pointer text-blue-600" : "text-slate-400"}`}>
+          <label
+            className={`text-sm font-semibold ${
+              canAvatar ? "cursor-pointer text-blue-600" : "text-slate-400"
+            }`}
+          >
             {canAvatar ? "Change photo" : `Photo locked (${avatarDays}d left)`}
-            {canAvatar && <input type="file" accept="image/*" className="hidden" onChange={onAvatar} />}
+            {canAvatar && (
+              <input type="file" accept="image/*" className="hidden" onChange={onAvatar} />
+            )}
           </label>
         </div>
+
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-700">Anonymous username</label>
+          <label className="mb-1 block text-sm font-medium text-slate-700">
+            Anonymous username
+          </label>
           <div className="flex gap-2">
             <input
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
               disabled={!canNick}
+              autoComplete="off"
               className="h-11 flex-1 rounded-xl border border-slate-200 px-3 text-sm focus:border-blue-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
             />
             {canNick && (
@@ -157,10 +185,31 @@ export default function AccountSettingsPage() {
           </div>
           <p className="mt-1 text-xs text-slate-400">
             {canNick
-              ? "Must be unique. You can change it once every 7 days."
-              : `Username locked for ${nickDays} more day(s).`}
+              ? "Public identity only. Must be unique. Change once every 7 days."
+              : `Locked · next change in ${nickDays} day(s)`}
           </p>
         </div>
+
+        {nicknameChanging && (
+          <div className="rounded-xl border border-amber-100 bg-amber-50/80 p-3">
+            <label className="mb-1 block text-sm font-medium text-slate-800">
+              Your real / legal name (private)
+            </label>
+            <input
+              type="text"
+              value={privateRealName}
+              onChange={(e) => setPrivateRealName(e.target.value)}
+              autoComplete="off"
+              placeholder="Not shown publicly — used only to block real-name nicknames"
+              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm focus:border-blue-500 focus:outline-none"
+            />
+            <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
+              Sirbax stays anonymous. We compare this privately to your new nickname and{" "}
+              <strong>never</strong> save or display your real name on your profile.
+            </p>
+          </div>
+        )}
+
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">Bio</label>
           <textarea
