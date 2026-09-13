@@ -37,8 +37,8 @@ export default function AccountSettingsPage() {
   const avatarDays = daysUntilChangeAllowed(user.lastAvatarChangeAt);
   const canNick = canChangeNow(user.lastNicknameChangeAt);
   const canAvatar = canChangeNow(user.lastAvatarChangeAt);
-  const nicknameChanging =
-    canNick && nickname.trim().replace(/\s+/g, "") !== user.nickname;
+  // Always show when nickname editing is allowed (not only after typing a new name)
+  const showPrivateNameField = canNick;
 
   const save = async () => {
     setBusy(true);
@@ -190,9 +190,9 @@ export default function AccountSettingsPage() {
           </p>
         </div>
 
-        {nicknameChanging && (
-          <div className="rounded-xl border border-amber-100 bg-amber-50/80 p-3">
-            <label className="mb-1 block text-sm font-medium text-slate-800">
+        {showPrivateNameField && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <label className="mb-1 block text-sm font-semibold text-slate-800">
               Your real / legal name (private)
             </label>
             <input
@@ -203,9 +203,10 @@ export default function AccountSettingsPage() {
               placeholder="Not shown publicly — used only to block real-name nicknames"
               className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm focus:border-blue-500 focus:outline-none"
             />
-            <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
-              Sirbax stays anonymous. We compare this privately to your new nickname and{" "}
-              <strong>never</strong> save or display your real name on your profile.
+            <p className="mt-2 text-[12px] leading-relaxed text-slate-600">
+              Required when you change your nickname. We only use this privately to stop real-name
+              nicknames. Your real name is <strong>never</strong> saved on your profile or shown to
+              anyone else.
             </p>
           </div>
         )}
