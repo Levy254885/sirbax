@@ -31,8 +31,6 @@ service cloud.firestore {
         && request.resource.data.keys().hasAny(['nickname'])
         && validNickname(request.resource.data.nickname);
 
-      // Owner edits profile. Any signed-in user may bump public counters
-      // so follow/post counts work across accounts.
       allow update: if isUser(userId)
         || (signedIn()
             && request.resource.data.diff(resource.data).affectedKeys()
@@ -161,28 +159,77 @@ service cloud.firestore {
         && resource.data.recipientId == request.auth.uid;
     }
 
-    match /listings/{lid} {
+    // Marketplace — NO escrow / NO wallet / NO fund custody
+    match /marketplaceListings/{lid} {
       allow read: if true;
       allow create: if signedIn()
         && request.resource.data.sellerId == request.auth.uid
         && request.resource.data.price is number
-        && request.resource.data.price > 0;
-      allow update, delete: if signedIn()
+        && request.resource.data.price > 0
+        && request.resource.data.title is string;
+      allow update: if signedIn() && (
+        resource.data.sellerId == request.auth.uid
+        || request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['views', 'saves', 'updatedAt'])
+      );
+      allow delete: if signedIn()
         && resource.data.sellerId == request.auth.uid;
     }
 
-    match /orders/{oid} {
+    match /marketplaceOffers/{oid} {
       allow read: if signedIn() && (
         resource.data.buyerId == request.auth.uid
         || resource.data.sellerId == request.auth.uid
       );
       allow create: if signedIn()
-        && request.resource.data.buyerId == request.auth.uid;
+        && request.resource.data.buyerId == request.auth.uid
+        && request.resource.data.amount is number
+        && request.resource.data.amount > 0;
       allow update: if signedIn() && (
         resource.data.buyerId == request.auth.uid
         || resource.data.sellerId == request.auth.uid
       );
       allow delete: if false;
+    }
+
+    match /marketplaceDeals/{did} {
+      allow read: if signedIn() && (
+        resource.data.buyerId == request.auth.uid
+        || resource.data.sellerId == request.auth.uid
+      );
+      allow create: if signedIn() && (
+        request.resource.data.buyerId == request.auth.uid
+        || request.resource.data.sellerId == request.auth.uid
+      );
+      allow update: if signedIn() && (
+        resource.data.buyerId == request.auth.uid
+        || resource.data.sellerId == request.auth.uid
+      );
+      allow delete: if false;
+    }
+
+    match /marketplaceSaved/{uid} {
+      allow read, write: if isUser(uid);
+      match /items/{lid} {
+        allow read, write: if isUser(uid);
+      }
+    }
+
+    match /marketplaceRatings/{rid} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.fromId == request.auth.uid
+        && request.resource.data.fromId != request.resource.data.toId
+        && request.resource.data.stars is number
+        && request.resource.data.stars >= 1
+        && request.resource.data.stars <= 5;
+      allow update, delete: if false;
+    }
+
+    match /marketplaceReports/{rid} {
+      allow create: if signedIn()
+        && request.resource.data.reporterId == request.auth.uid;
+      allow read, update, delete: if false;
     }
 
     match /groups/{gid} {
