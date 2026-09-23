@@ -15,7 +15,7 @@ export function ProductCard({ listing }: { listing: MarketplaceListing }) {
       <div className="relative aspect-[4/3] bg-slate-100">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={listing.coverImage || "https://placehold.co/600x450/f1f5f9/94a3b8?text=No+image"}
+          src={listing.coverImage || "/placeholder-product.svg"}
           alt={listing.title}
           className="h-full w-full object-cover"
           loading="lazy"
